@@ -274,30 +274,17 @@ export default function QueryReportsPage(props) {
   const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
-      // TODO: 替换为实际的数据源调用
-      // const result = await $w?.cloud.callDataSource({
-      //   dataSourceName: 'chromatography_reports',
-      //   methodName: 'wedaGetRecordsV2',
-      //   params: {
-      //     filter: {
-      //       where: {
-      //         $and: [
-      //           { createBy: { $eq-current-user: true } }
-      //         ]
-      //       }
-      //     },
-      //     orderBy: [{ submitTime: 'desc' }],
-      //     select: { $master: true },
-      //     getCount: true,
-      //     pageSize: PAGINATION.MAX_PAGE_SIZE
-      //   }
-      // });
-      // setReports(result.records);
-      // setFilteredReports(result.records);
+      const response = await reportApi.searchReports(
+        {},
+        1, PAGINATION.MAX_PAGE_SIZE
+      );
 
-      // 临时使用模拟数据
-      setReports(mockReports);
-      setFilteredReports(mockReports);
+      const { records, total } = response;
+
+      //更新数据
+      setReports(records);
+      setFilteredReports(records);
+
     } catch (error) {
       console.error('获取报告失败:', error);
       toast({
@@ -311,17 +298,27 @@ export default function QueryReportsPage(props) {
   }, [$w, toast]);
 
   // 搜索处理
-  const handleSearch = useCallback(() => {
+  const handleSearch = useCallback(async () => {
     setLoading(true);
     try {
-      // TODO: 替换为实际的数据源调用
-      // 临时使用前端过滤
-      const filtered = filterData(reports, searchParams);
-      setFilteredReports(filtered);
-      resetPagination();
+      const response = await reportApi.searchReports(
+        searchParams,
+        pageNum,
+        pageSize
+      );
+
+      const { records, total, current, size } = response;
+
+      //更新数据
+      setFilteredReports(records);
+
+      // 更新分页信息
+      setPageNum(current);
+      setTotal(total);
+
       toast({
         title: '查询完成',
-        description: `找到 ${filtered.length} 条报告`,
+        description: `找到 ${total} 条报告`,
       });
     } catch (error) {
       console.error('搜索失败:', error);
@@ -333,7 +330,7 @@ export default function QueryReportsPage(props) {
     } finally {
       setLoading(false);
     }
-  }, [reports, searchParams, resetPagination, toast]);
+  }, [reports, searchParams, resetPagination.pageSize, toast]);
 
   // 重置搜索
   const handleReset = useCallback(() => {
@@ -361,9 +358,16 @@ export default function QueryReportsPage(props) {
   const handleDownload = useCallback(
     async (reportId) => {
       try {
-        // TODO: 替换为实际的数据源调用
-        // 临时模拟下载
         const report = reports.find((r) => r.id === reportId);
+
+        const response = await reportApi.downloadReport(report.columnSn);
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Report_${reportId}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
         if (report) {
           toast({
             title: '下载成功',
@@ -394,12 +398,27 @@ export default function QueryReportsPage(props) {
       return;
     }
     try {
-      // TODO: 替换为实际的数据源调用
-      // 临时模拟批量下载
+      // 获取选中报告的 columnSn 列表
+      const columnSns = selection.selectedItems.map((report) => report.columnSn);
+
+      // 调用批量下载接口
+      const response = await reportApi.downloadBatchReports(columnSns);
+
+      // 创建下载链接
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Reports_Batch.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+
       toast({
         title: '批量下载开始',
         description: `${selection.selectedItems.length} 个报告已开始下载`,
       });
+
+      // 清空选择
       selection.clearSelection();
     } catch (error) {
       console.error('批量下载失败:', error);
