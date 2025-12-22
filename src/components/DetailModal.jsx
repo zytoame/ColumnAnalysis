@@ -41,36 +41,18 @@ export function DetailModal({
     const statusConfig = {
       qualified: {
         label: '合格',
-        color: 'default'
+        color: 'green'
       },
-      unqualified: {
+      unqualified: { 
         label: '不合格',
-        color: 'destructive'
+        color: 'red'
       }
     };
     const config = statusConfig[status] || statusConfig.unqualified;
     return <Badge variant={config.color}>{config.label}</Badge>;
   };
 
-  // 获取优先级标签
-  const getPriorityBadge = priority => {
-    const priorityConfig = {
-      high: {
-        label: '高',
-        color: 'destructive'
-      },
-      medium: {
-        label: '中',
-        color: 'secondary'
-      },
-      low: {
-        label: '低',
-        color: 'outline'
-      }
-    };
-    const config = priorityConfig[priority] || priorityConfig.medium;
-    return <Badge variant={config.color}>{config.label}</Badge>;
-  };
+
   if (!isOpen || !column) return null;
   return <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -103,31 +85,27 @@ export function DetailModal({
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">工单号</label>
-                    <p className="font-medium">{column.workOrder}</p>
+                    <p className="font-medium">{column.sapWorkOrderNo}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">层析柱序列号</label>
-                    <p className="font-medium">{column.columnSn || column.columnSerial}</p>
+                    <p className="font-medium">{column.columnSn}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">订单号</label>
-                    <p className="font-medium">{column.orderNumber}</p>
+                    <p className="font-medium">{column.sapOrderNo}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">仪器序列号</label>
-                    <p className="font-medium">{column.instrumentSerial}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">层析柱名称</label>
-                    <p className="font-medium">{column.columnName}</p>
+                    <p className="font-medium">{column.deviceSn}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">检测类型</label>
-                    <p className="font-medium">{column.testType}</p>
+                    <p className="font-medium">{column.mode}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">检测日期</label>
-                    <p className="font-medium">{column.testDate}</p>
+                    <p className="font-medium">{column.inspectionDate}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">操作员</label>
@@ -135,11 +113,7 @@ export function DetailModal({
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">提交时间</label>
-                    <p className="font-medium">{column.submitTime}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">优先级</label>
-                    <div>{getPriorityBadge(column.priority)}</div>
+                    <p className="font-medium">{column.createTime}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">最终结论</label>
@@ -169,9 +143,9 @@ export function DetailModal({
                           <div className="flex items-center gap-2">
                             {getDetectionIcon(data.icon)}
                             <h4 className="font-medium">
-                              {key === 'moduleTemperature' && '模块温度'}
-                              {key === 'systemPressure' && '系统压力'}
-                              {key === 'hbA1cAppearanceTime' && 'HbA1c出现时间'}
+                              {key === 'setTemperature' && '设置温度'}
+                              {key === 'pressure' && '系统压力'}
+                              {key === 'hbA1cPeakTime' && 'HbA1c出峰时间'}
                               {key === 'repeatabilityTest' && '重复性测试'}
                               {key === 'appearanceInspection' && '外观检查'}
                             </h4>
@@ -196,7 +170,7 @@ export function DetailModal({
             </Card>}
 
           {/* 不合格原因 */}
-          {column.不合格原因 && <Card>
+          {column.unqualifiedReason && <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5" />
@@ -205,7 +179,7 @@ export function DetailModal({
               </CardHeader>
               <CardContent>
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <p className="text-red-800 font-medium">{column.不合格原因}</p>
+                  <p className="text-red-800 font-medium">{column.unqualifiedReason}</p>
                 </div>
               </CardContent>
             </Card>}

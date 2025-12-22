@@ -36,9 +36,8 @@ export function UnqualifiedReportTable({
           <TableHead>订单号</TableHead>
           <TableHead>仪器序列号</TableHead>
           <TableHead>检测模式</TableHead>
+          <TableHead>成品序列号</TableHead>
           <TableHead>检测日期</TableHead>
-          <TableHead>检测结论</TableHead>
-          <TableHead>提交时间</TableHead>
           <TableHead>操作</TableHead>
         </TableRow>
       </TableHeader>

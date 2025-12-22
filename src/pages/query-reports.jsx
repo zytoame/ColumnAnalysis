@@ -1,243 +1,26 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge, useToast, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui';
-import { FileText, ArrowLeft, Plus, Search, Download, Loader2, User, Thermometer, Gauge, Timer, Activity, Package } from 'lucide-react';
+import { Button, Card, CardContent, CardHeader, CardTitle, Badge, useToast, 
+  Pagination, PaginationContent, PaginationEllipsis, PaginationItem, 
+  PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui';
+import { FileText, ArrowLeft, Plus, Search, Download, Loader2, User } from 'lucide-react';
 import { ReportTable } from '@/components/ReportTable';
 import { ReportStats } from '@/components/ReportStats';
 import { SearchFilters } from '@/components/SearchFilters';
-import { DetailModal } from '@/components/DetailModal';
 import { usePagination } from '@/hooks/usePagination';
 import { useSelection } from '@/hooks/useSelection';
 import { useExpand } from '@/hooks/useExpand';
-import { filterData } from '@/utils/filters';
+import reportApi from '@/api/report';
 import { generatePageNumbers } from '@/utils/pagination';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES, TEST_TYPES, PAGINATION, TEST_RESULTS } from '@/constants';
 
-// 简化的模拟报告数据
-const mockReports = [{
-  id: 'RPT-001',
-  sapWorkOrderNo: 'WO202501001',
-  columnSn: 'COL-2025-001',
-  sapOrderNo: 'ORD-202501001',
-  deviceSn: 'INST-001',
-  columnName: 'Protein A Column',
-  mode: '糖化模式',
-  testDate: '2025-01-15',
-  status: '合格',
-  operator: '张三',
-  submitTime: '2025-01-15 14:30:00',
-  // 详细检测数据
-  detectionData: {
-    setTemperature: {
-      standard: '25-40°C',
-      result: '38.5°C',
-      conclusion: 'pass',
-      icon: Thermometer
-    },
-    pressure: {
-      standard: '5.0-8.0 MPa',
-      result: '7.2 MPa',
-      conclusion: 'pass',
-      icon: Gauge
-    },
-    peakTime: {
-      standard: '36-40 秒',
-      result: '42.3 秒',
-      conclusion: 'fail',
-      icon: Timer
-    },
-    repeatabilityTest: {
-      standard: 'CV < 1.5%',
-      result: '1.8%',
-      conclusion: 'fail',
-      icon: Activity
-    },
-    appearanceInspection: {
-      standard: '包装完整，无明显损坏',
-      result: '包装完好',
-      conclusion: 'pass',
-      icon: Package
-    }
-  },
-  finalConclusion: 'qualified',
-  // 操作历史
-  operationHistory: [{
-    time: '2025-01-15 14:30:00',
-    operator: '张三',
-    action: '提交检测',
-    remark: '完成所有检测项目'
-  }, {
-    time: '2025-01-15 15:00:00',
-    operator: '系统',
-    action: '自动判定',
-    remark: '检测结果显示合格'
-  }]
-}, {
-  id: 'RPT-002',
-  sapWorkOrderNo: 'WO202501002',
-  columnSn: 'COL-2025-002',
-  sapOrderNo: 'ORD-202501002',
-  deviceSn: 'INST-002',
-  columnName: 'Ion Exchange Column',
-  mode: '地贫模式',
-  testDate: '2025-01-14',
-  status: '合格',
-  operator: '李四',
-  submitTime: '2025-01-14 16:45:00',
-  // 详细检测数据
-  detectionData: {
-    setTemperature: {
-      standard: '25-40°C',
-      result: '35.2°C',
-      conclusion: 'pass',
-      icon: Thermometer
-    },
-    pressure: {
-      standard: '5.0-8.0 MPa',
-      result: '6.8 MPa',
-      conclusion: 'pass',
-      icon: Gauge
-    },
-    peakTime: {
-      standard: '36-40 秒',
-      result: '38.1 秒',
-      conclusion: 'pass',
-      icon: Timer
-    },
-    repeatabilityTest: {
-      standard: 'CV < 1.5%',
-      result: '1.2%',
-      conclusion: 'pass',
-      icon: Activity
-    },
-    appearanceInspection: {
-      standard: '包装完整，无明显损坏',
-      result: '包装完好',
-      conclusion: 'pass',
-      icon: Package
-    }
-  },
-  finalConclusion: 'qualified',
-  operationHistory: [{
-    time: '2025-01-14 16:45:00',
-    operator: '李四',
-    action: '提交检测',
-    remark: '完成地贫模式检测'
-  }]
-}, {
-  id: 'RPT-003',
-  sapWorkOrderNo: 'WO202501003',
-  columnSn: 'COL-2025-003',
-  sapOrderNo: 'ORD-202501003',
-  deviceSn: 'INST-001',
-  columnName: 'Gel Filtration Column',
-  mode: '糖化模式',
-  testDate: '2025-01-13',
-  status: '不合格',
-  operator: '王五',
-  submitTime: '2025-01-13 11:20:00',
-  // 详细检测数据
-  detectionData: {
-    setTemperature: {
-      standard: '25-40°C',
-      result: '32.1°C',
-      conclusion: 'pass',
-      icon: Thermometer
-    },
-    pressure: {
-      standard: '5.0-8.0 MPa',
-      result: '5.5 MPa',
-      conclusion: 'pass',
-      icon: Gauge
-    },
-    peakTime: {
-      standard: '36-40 秒',
-      result: '39.8 秒',
-      conclusion: 'pass',
-      icon: Timer
-    },
-    repeatabilityTest: {
-      standard: 'CV < 1.5%',
-      result: '2.1%',
-      conclusion: 'fail',
-      icon: Activity
-    },
-    appearanceInspection: {
-      standard: '包装完整，无明显损坏',
-      result: '密封塞松动',
-      conclusion: 'fail',
-      icon: Package
-    }
-  },
-  finalConclusion: 'unqualified',
-  operationHistory: [{
-    time: '2025-01-13 11:20:00',
-    operator: '王五',
-    action: '提交检测',
-    remark: '完成糖化模式检测'
-  }]
-}, {
-  id: 'RPT-004',
-  sapWorkOrderNo: 'WO202501004',
-  columnSn: 'COL-2025-004',
-  sapOrderNo: 'ORD-202501004',
-  deviceSn: 'INST-002',
-  columnName: 'Affinity Column',
-  mode: '地贫模式',
-  testDate: '2025-01-12',
-  status: '合格',
-  operator: '赵六',
-  submitTime: '2025-01-12 09:15:00',
-  // 详细检测数据
-  detectionData: {
-    setTemperature: {
-      standard: '25-40°C',
-      result: '37.8°C',
-      conclusion: 'pass',
-      icon: Thermometer
-    },
-    pressure: {
-      standard: '5.0-8.0 MPa',
-      result: '6.2 MPa',
-      conclusion: 'pass',
-      icon: Gauge
-    },
-    peakTime: {
-      standard: '36-40 秒',
-      result: '37.5 秒',
-      conclusion: 'pass',
-      icon: Timer
-    },
-    repeatabilityTest: {
-      standard: 'CV < 1.5%',
-      result: '0.9%',
-      conclusion: 'pass',
-      icon: Activity
-    },
-    appearanceInspection: {
-      standard: '包装完整，无明显损坏',
-      result: '包装完好',
-      conclusion: 'pass',
-      icon: Package
-    }
-  },
-  finalConclusion: 'qualified',
-  operationHistory: [{
-    time: '2025-01-12 09:15:00',
-    operator: '赵六',
-    action: '提交检测',
-    remark: '完成地贫模式检测'
-  }]
-}];
+
 export default function QueryReportsPage(props) {
   const { $w, style } = props;
   const { toast } = useToast();
 
   // 状态管理
   const [reports, setReports] = useState([]);
-  const [filteredReports, setFilteredReports] = useState([]);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [viewingReport, setViewingReport] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // 搜索条件
@@ -247,17 +30,13 @@ export default function QueryReportsPage(props) {
     sapOrderNo: '',
     deviceSn: '',
     mode: TEST_TYPES.ALL,
-    status: TEST_RESULTS.ALL,
+    status: 'all', // 报告状态：all(全部), GENERATED(已生成), DOWNLOADED(已下载)
   });
 
-  // 使用自定义 hooks
-  const { pageNum, setPageNum, pagination, reset: resetPagination } = usePagination(
-    filteredReports,
-    { pageSize: PAGINATION.DEFAULT_PAGE_SIZE }
-  );
+  // --- hooks ---
   const selection = useSelection();
   const expand = useExpand();
-
+  
   // 当前用户信息
   const currentUser = useMemo(
     () => ({
@@ -267,58 +46,60 @@ export default function QueryReportsPage(props) {
     []
   );
 
-  // 当前页数据
-  const currentReports = useMemo(() => pagination.currentItems, [pagination.currentItems]);
+  // 分页状态
+  const [pageNum, setPageNum] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [total, setTotal] = useState(0);
+
+  
+  // 后端已经做了分页，reports 就是当前页的数据
+  const currentReports = useMemo(() => {
+    return reports;
+  }, [reports]);
 
   // 获取报告列表
-  const fetchReports = useCallback(async () => {
+  const fetchReports = useCallback(async (page = 1, currentParams) => {
     setLoading(true);
     try {
+      // 如果没有传入参数，使用当前的 searchParams
+      const params = currentParams !== undefined ? currentParams : searchParams;
       const response = await reportApi.searchReports(
-        {},
-        1, PAGINATION.MAX_PAGE_SIZE
+        params,
+        page,
+        PAGINATION.DEFAULT_PAGE_SIZE
       );
 
-      const { records, total } = response;
-
+      // MyBatis-Plus Page 对象序列化后的字段：records, total, pages, current, size
       //更新数据
-      setReports(records);
-      setFilteredReports(records);
-
+      setReports(response.records || []);
+      setTotal(response.total || 0);
+      setPageNum(page);
+      setTotalPages(response.pages || Math.ceil((response.total || 0) / PAGINATION.DEFAULT_PAGE_SIZE));
+    
+      return response;
     } catch (error) {
       console.error('获取报告失败:', error);
+      console.error('错误详情:', error.response?.data || error.message);
       toast({
         title: '获取数据失败',
-        description: '无法加载报告列表',
+        description: error.response?.data?.message || error.message || '无法加载报告列表',
         variant: 'destructive',
       });
+      throw error;
     } finally {
       setLoading(false);
     }
-  }, [$w, toast]);
+  }, [searchParams, toast]);
 
   // 搜索处理
   const handleSearch = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await reportApi.searchReports(
-        searchParams,
-        pageNum,
-        pageSize
-      );
-
-      const { records, total, current, size } = response;
-
-      //更新数据
-      setFilteredReports(records);
-
-      // 更新分页信息
-      setPageNum(current);
-      setTotal(total);
+      const response = await fetchReports(1, searchParams);
 
       toast({
         title: '查询完成',
-        description: `找到 ${total} 条报告`,
+        description: `找到 ${response.total} 条报告`,
       });
     } catch (error) {
       console.error('搜索失败:', error);
@@ -330,21 +111,21 @@ export default function QueryReportsPage(props) {
     } finally {
       setLoading(false);
     }
-  }, [reports, searchParams, resetPagination.pageSize, toast]);
+  }, [searchParams, fetchReports, toast]);
 
   // 重置搜索
-  const handleReset = useCallback(() => {
-    setSearchParams({
+  const handleReset = () => {
+    const resetValues = {
       sapWorkOrderNo: '',
       columnSn: '',
       sapOrderNo: '',
       deviceSn: '',
       mode: TEST_TYPES.ALL,
-      status: TEST_RESULTS.ALL,
-    });
-    setFilteredReports(reports);
-    resetPagination();
-  }, [reports, resetPagination]);
+      status: 'all', // 报告状态：all(全部), GENERATED(已生成), DOWNLOADED(已下载)
+    };
+    setSearchParams(resetValues);
+    fetchReports(1, resetValues);
+  };
 
   // 生成报告
   const handleGenerateReport = useCallback(() => {
@@ -355,23 +136,21 @@ export default function QueryReportsPage(props) {
   }, [$w]);
 
   // 下载报告
-  const handleDownload = useCallback(
-    async (reportId) => {
+  const handleDownload = useCallback( async (report) => {
       try {
-        const report = reports.find((r) => r.id === reportId);
-
         const response = await reportApi.downloadReport(report.columnSn);
-        const url = window.URL.createObjectURL(new Blob([response.data]));
-        const link = document.createElement('a');
+        const blob = new Blob([response.data]);
+        const url = window.URL.createObjectURL(blob);
+        const link = document.body.appendChild(document.createElement('a'));
         link.href = url;
-        link.setAttribute('download', `Report_${reportId}.pdf`);
-        document.body.appendChild(link);
+        link.download = `Report_${report.columnSn}.docx`;
         link.click();
-        link.parentNode.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        link.remove();
         if (report) {
           toast({
             title: '下载成功',
-            description: `报告 ${report.id} 已开始下载`,
+            description: `报告 ${report.columnSn} 已开始下载`,
           });
         }
       } catch (error) {
@@ -384,7 +163,6 @@ export default function QueryReportsPage(props) {
         });
       }
     },
-    [reports, toast]
   );
 
   // 批量下载报告
@@ -404,18 +182,55 @@ export default function QueryReportsPage(props) {
       // 调用批量下载接口
       const response = await reportApi.downloadBatchReports(columnSns);
 
+      // 后端返回的是JSON对象，包含zipData字段
+      // Spring Boot默认将byte[]序列化为base64字符串
+      const zipData = response.data.zipData;
+      if (!zipData) {
+        throw new Error('未获取到下载数据');
+      }
+
+      // 将base64字符串转换为Blob
+      let blob;
+      if (typeof zipData === 'string') {
+        // base64字符串（Spring Boot Jackson默认序列化byte[]为base64）
+        // 移除可能的data URL前缀
+        const base64Data = zipData.includes(',') ? zipData.split(',')[1] : zipData;
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        blob = new Blob([byteArray], { type: 'application/zip' });
+      } else if (zipData instanceof Array) {
+        // 如果是数组，转换为Uint8Array
+        blob = new Blob([new Uint8Array(zipData)], { type: 'application/zip' });
+      } else {
+        // 其他情况，直接使用
+        blob = new Blob([zipData], { type: 'application/zip' });
+      }
+
       // 创建下载链接
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Reports_Batch.zip`);
+      link.setAttribute('download', `Reports_Batch_${new Date().getTime()}.zip`);
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      // 显示下载结果信息
+      const successCount = response.data.successCount || 0;
+      const failCount = response.data.failCount || 0;
+      let description = `成功下载 ${successCount} 个报告`;
+      if (failCount > 0) {
+        description += `，失败 ${failCount} 个`;
+      }
 
       toast({
-        title: '批量下载开始',
-        description: `${selection.selectedItems.length} 个报告已开始下载`,
+        title: '批量下载完成',
+        description: description,
       });
 
       // 清空选择
@@ -431,26 +246,39 @@ export default function QueryReportsPage(props) {
     }
   }, [selection, toast]);
 
-  // 预览报告详情
-  const handlePreview = useCallback(
-    (reportId) => {
+  // 预览报告（在新窗口打开Word文档）
+  const handlePreview = useCallback(async (report) => {
       try {
-        // TODO: 替换为实际的数据源调用
-        const report = reports.find((r) => r.id === reportId);
-        if (report) {
-          setViewingReport(report);
-          setShowDetailModal(true);
-        }
+        const response = await reportApi.previewReport(report.columnSn);
+
+        // 后端返回的是Word文档的blob数据
+        const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        const url = window.URL.createObjectURL(blob);
+
+        // 在新窗口打开Word文档
+        window.open(url, '_blank');
+
+        // 清理URL对象（可选，在窗口关闭后清理）
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 1000);
+
+        toast({
+          title: '预览成功',
+          description: '报告已在新窗口中打开',
+        });
+
       } catch (error) {
         console.error('获取报告详情失败:', error);
+        console.error('错误详情:', error.response?.data || error.message);
         toast({
-          title: '获取详情失败',
-          description: '无法加载报告详情',
+          title: '预览失败',
+          description: error.response?.data?.message || error.message || '无法加载报告',
           variant: 'destructive',
         });
       }
     },
-    [reports, toast]
+    [toast]
   );
 
   // 返回主页
@@ -461,22 +289,27 @@ export default function QueryReportsPage(props) {
     });
   }, [$w]);
 
+  // 处理分页
+  const handlePageChange = useCallback((newPage) => {
+    setPageNum(newPage);
+    fetchReports(newPage, searchParams);
+  }, [searchParams, fetchReports]);
+
   // 分页组件
   const renderPagination = useMemo(() => {
-    if (pagination.totalPages <= 1) return null;
-    const pageNumbers = generatePageNumbers(pageNum, pagination.totalPages);
+    if (totalPages <= 1) return null;
+    const pageNumbers = generatePageNumbers(pageNum, totalPages);
 
     return (
       <div className="flex items-center justify-between px-2">
         <div className="text-sm text-gray-500">
-          显示第 {pagination.startIndex + 1} - {Math.min(pagination.endIndex, filteredReports.length)} 条，共{' '}
-          {filteredReports.length} 条记录
+          共{total} 条记录，第{pageNum}/{totalPages}页
         </div>
         <Pagination>
           <PaginationContent>
             <PaginationItem>
               <PaginationPrevious
-                onClick={() => setPageNum((prev) => Math.max(prev - 1, 1))}
+                onClick={() => pageNum > 1 && fetchReports(pageNum - 1)}
                 className={pageNum === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
               />
             </PaginationItem>
@@ -504,7 +337,7 @@ export default function QueryReportsPage(props) {
 
             <PaginationItem>
               <PaginationNext
-                onClick={() => setPageNum((prev) => Math.min(prev + 1, pagination.totalPages))}
+                onClick={() => pageNum < totalPages && fetchReports(pageNum + 1)}
                 className={
                   pageNum === pagination.totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'
                 }
@@ -514,7 +347,7 @@ export default function QueryReportsPage(props) {
         </Pagination>
       </div>
     );
-  }, [pageNum, pagination, filteredReports.length, setPageNum]);
+  }, [pageNum, totalPages, fetchReports, total]);
 
   // 计算统计数据
   const qualifiedCount = useMemo(
@@ -532,8 +365,9 @@ export default function QueryReportsPage(props) {
 
   // 组件挂载时获取数据
   useEffect(() => {
-    fetchReports();
+    fetchReports(1, searchParams);
   }, [fetchReports]);
+
   return <div style={style} className="min-h-screen bg-gray-50">
       {/* 顶部导航 */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -604,7 +438,7 @@ export default function QueryReportsPage(props) {
                   生成报告
                 </Button>
                 <div className="text-sm text-gray-500">
-                  当前页显示 {currentReports.length} 条，共 {filteredReports.length} 个报告
+                  当前页显示 {currentReports.length} 条，共 {total} 个报告
                 </div>
               </div>
             </CardTitle>
@@ -617,7 +451,7 @@ export default function QueryReportsPage(props) {
               </div>
             ) : (
               <ReportTable
-                reports={currentReports}
+                reports={reports}
                 selectedReports={selection.selectedItems}
                 expandedRows={expand.expandedItems}
                 onSelectReport={selection.toggleSelection}
@@ -631,10 +465,10 @@ export default function QueryReportsPage(props) {
         </Card>
 
         {/* 分页组件 */}
-        {filteredReports.length > 0 && <div className="mt-4">{renderPagination}</div>}
+        {total > 0 && <div className="mt-4">{renderPagination}</div>}
 
         {/* 空状态 */}
-        {!loading && filteredReports.length === 0 && <Card className="text-center py-12">
+        {!loading && reports.length === 0 && <Card className="text-center py-12">
             <CardContent>
               <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">暂无报告</h3>
@@ -647,10 +481,5 @@ export default function QueryReportsPage(props) {
           </Card>}
       </div>
 
-      {/* 详情模态框 */}
-      {showDetailModal && viewingReport && <DetailModal report={viewingReport} isOpen={showDetailModal} onClose={() => {
-      setShowDetailModal(false);
-      setViewingReport(null);
-    }} />}
     </div>;
 }

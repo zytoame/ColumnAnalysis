@@ -50,12 +50,12 @@ export function SearchFilters({
     {
       type: 'select',
       name: 'status',
-      label: '检测结果',
-      placeholder: '选择检测结果',
+      label: '报告状态',
+      placeholder: '选择报告状态',
       options: [
-        { value: 'all', label: '全部结果' },
-        { value: 'qualified', label: '合格' },
-        { value: 'unqualified', label: '不合格' },
+        { value: 'all', label: '全部状态' },
+        { value: 'GENERATED', label: '已生成' },
+        { value: 'DOWNLOADED', label: '已下载' },
       ],
     },
   ];

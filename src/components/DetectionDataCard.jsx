@@ -48,7 +48,7 @@ export const DetectionDataCard = ({
         合格
       </Badge>
     ) : (
-      <Badge variant="destructive">不合格</Badge>
+      <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">不合格</Badge>
     );
   };
 
@@ -59,7 +59,7 @@ export const DetectionDataCard = ({
         最终合格
       </Badge>
     ) : (
-      <Badge variant="destructive">最终不合格</Badge>
+      <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">最终不合格</Badge>
     );
   };
 
