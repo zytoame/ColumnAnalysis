@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge, useToast, 
-  Pagination, PaginationContent, PaginationEllipsis, PaginationItem, 
-  PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, Badge, useToast,
+  Pagination, PaginationContent, PaginationEllipsis, PaginationItem,
+  PaginationLink, PaginationNext, PaginationPrevious,
+  Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 import { FileText, ArrowLeft, Plus, Search, Download, Loader2, User } from 'lucide-react';
 import { ReportTable } from '@/components/ReportTable';
 import { ReportStats } from '@/components/ReportStats';
@@ -22,6 +23,30 @@ export default function QueryReportsPage(props) {
   // 状态管理
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // 预览相关状态
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewTitle, setPreviewTitle] = useState('');
+  const [previewBlobUrl, setPreviewBlobUrl] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState('');
+  const [previewColumnSn, setPreviewColumnSn] = useState('');
+
+  // 关闭预览对话框时的清理
+  const handleClosePreview = useCallback(() => {
+    setPreviewDialogOpen(false);
+    // 清理blob URL对象
+    if (previewBlobUrl) {
+      window.URL.revokeObjectURL(previewBlobUrl);
+      setPreviewBlobUrl('');
+    }
+    setPreviewUrl('');
+    setPreviewTitle('');
+    setPreviewLoading(false);
+    setPreviewError('');
+    setPreviewColumnSn('');
+  }, [previewBlobUrl]);
 
   // 搜索条件
   const [searchParams, setSearchParams] = useState({
@@ -138,19 +163,23 @@ export default function QueryReportsPage(props) {
   // 下载报告
   const handleDownload = useCallback( async (report) => {
       try {
-        const response = await reportApi.downloadReport(report.columnSn);
+        const columnSn = typeof report === 'string' ? report : report?.columnSn;
+        if (!columnSn) {
+          throw new Error('缺少报告编号');
+        }
+        const response = await reportApi.downloadReport(columnSn);
         const blob = new Blob([response.data]);
         const url = window.URL.createObjectURL(blob);
         const link = document.body.appendChild(document.createElement('a'));
         link.href = url;
-        link.download = `Report_${report.columnSn}.docx`;
+        link.download = `Report_${columnSn}.pdf`;
         link.click();
         window.URL.revokeObjectURL(url);
         link.remove();
-        if (report) {
+        if (columnSn) {
           toast({
             title: '下载成功',
-            description: `报告 ${report.columnSn} 已开始下载`,
+            description: `报告 ${columnSn} 已开始下载`,
           });
         }
       } catch (error) {
@@ -165,6 +194,44 @@ export default function QueryReportsPage(props) {
     },
   );
 
+  // 生成已审核报告（单条）
+  const handleGenerateApprovedReport = useCallback(async (report) => {
+    try {
+      const columnSn = typeof report === 'string' ? report : report?.columnSn;
+      if (!columnSn) {
+        throw new Error('缺少报告编号');
+      }
+
+      const response = await reportApi.generateReport(columnSn);
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.body.appendChild(document.createElement('a'));
+      link.href = url;
+      link.download = `Report_${columnSn}.pdf`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      link.remove();
+
+      toast({
+        title: '生成成功',
+        description: `报告 ${columnSn} 已开始下载`,
+      });
+
+      // 生成后刷新列表（可选，避免状态未更新）
+      fetchReports(pageNum, searchParams);
+    } catch (error) {
+      console.error('生成报告失败:', error);
+      const backendMsg = error?.response?.data?.message;
+      const errorMessage = backendMsg || (error instanceof Error ? error.message : '无法生成报告');
+      toast({
+        title: '生成失败',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
+  }, [fetchReports, pageNum, searchParams, toast]);
+
   // 批量下载报告
   const handleBatchDownload = useCallback(async () => {
     if (selection.selectedItems.length === 0) {
@@ -177,38 +244,12 @@ export default function QueryReportsPage(props) {
     }
     try {
       // 获取选中报告的 columnSn 列表
-      const columnSns = selection.selectedItems.map((report) => report.columnSn);
+      const columnSns = selection.selectedItems;
 
       // 调用批量下载接口
       const response = await reportApi.downloadBatchReports(columnSns);
 
-      // 后端返回的是JSON对象，包含zipData字段
-      // Spring Boot默认将byte[]序列化为base64字符串
-      const zipData = response.data.zipData;
-      if (!zipData) {
-        throw new Error('未获取到下载数据');
-      }
-
-      // 将base64字符串转换为Blob
-      let blob;
-      if (typeof zipData === 'string') {
-        // base64字符串（Spring Boot Jackson默认序列化byte[]为base64）
-        // 移除可能的data URL前缀
-        const base64Data = zipData.includes(',') ? zipData.split(',')[1] : zipData;
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        blob = new Blob([byteArray], { type: 'application/zip' });
-      } else if (zipData instanceof Array) {
-        // 如果是数组，转换为Uint8Array
-        blob = new Blob([new Uint8Array(zipData)], { type: 'application/zip' });
-      } else {
-        // 其他情况，直接使用
-        blob = new Blob([zipData], { type: 'application/zip' });
-      }
+      const blob = new Blob([response.data], { type: 'application/zip' });
 
       // 创建下载链接
       const url = window.URL.createObjectURL(blob);
@@ -221,16 +262,9 @@ export default function QueryReportsPage(props) {
       window.URL.revokeObjectURL(url);
 
       // 显示下载结果信息
-      const successCount = response.data.successCount || 0;
-      const failCount = response.data.failCount || 0;
-      let description = `成功下载 ${successCount} 个报告`;
-      if (failCount > 0) {
-        description += `，失败 ${failCount} 个`;
-      }
-
       toast({
         title: '批量下载完成',
-        description: description,
+        description: `已开始下载 ${columnSns.length} 个报告的压缩包`,
       });
 
       // 清空选择
@@ -246,36 +280,86 @@ export default function QueryReportsPage(props) {
     }
   }, [selection, toast]);
 
-  // 预览报告（在新窗口打开Word文档）
+  // 批量生成已审核报告（ZIP）
+  const handleBatchGenerateApprovedReports = useCallback(async () => {
+    if (selection.selectedItems.length === 0) {
+      toast({
+        title: '请选择报告',
+        description: '请先选择要生成的报告',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const columnSns = selection.selectedItems;
+      const response = await reportApi.generateBatchReports(columnSns);
+
+      const blob = new Blob([response.data], { type: 'application/zip' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Reports_Generated_${new Date().getTime()}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: '批量生成完成',
+        description: `已开始下载 ${columnSns.length} 个报告的压缩包`,
+      });
+
+      selection.clearSelection();
+      fetchReports(pageNum, searchParams);
+    } catch (error) {
+      console.error('批量生成失败:', error);
+      const backendMsg = error?.response?.data?.message;
+      const errorMessage = backendMsg || (error instanceof Error ? error.message : '无法批量生成报告');
+      toast({
+        title: '批量生成失败',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
+  }, [fetchReports, pageNum, searchParams, selection, toast]);
+
+  // 预览报告（在对话框中显示）
   const handlePreview = useCallback(async (report) => {
       try {
+        setPreviewLoading(true);
+        setPreviewError('');
+        setPreviewColumnSn(report.columnSn);
         const response = await reportApi.previewReport(report.columnSn);
 
-        // 后端返回的是Word文档的blob数据
-        const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-        const url = window.URL.createObjectURL(blob);
+        const contentType = response?.headers?.['content-type'] || '';
+        if (!contentType.includes('pdf')) {
+          throw new Error('后端返回的不是PDF文件，无法预览');
+        }
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const blobUrl = window.URL.createObjectURL(blob);
 
-        // 在新窗口打开Word文档
-        window.open(url, '_blank');
-
-        // 清理URL对象（可选，在窗口关闭后清理）
-        setTimeout(() => {
-          window.URL.revokeObjectURL(url);
-        }, 1000);
+        setPreviewBlobUrl(blobUrl); // 保存blobUrl用于后续清理
+        setPreviewUrl(blobUrl);
+        setPreviewTitle(`报告预览 - ${report.columnSn}`);
+        setPreviewDialogOpen(true);
 
         toast({
           title: '预览成功',
-          description: '报告已在新窗口中打开',
+          description: '报告已加载完成',
         });
 
       } catch (error) {
         console.error('获取报告详情失败:', error);
         console.error('错误详情:', error.response?.data || error.message);
+        setPreviewError(error.response?.data?.message || error.message || '无法加载报告');
         toast({
           title: '预览失败',
           description: error.response?.data?.message || error.message || '无法加载报告',
           variant: 'destructive',
         });
+      } finally {
+        setPreviewLoading(false);
       }
     },
     [toast]
@@ -309,7 +393,7 @@ export default function QueryReportsPage(props) {
           <PaginationContent>
             <PaginationItem>
               <PaginationPrevious
-                onClick={() => pageNum > 1 && fetchReports(pageNum - 1)}
+                onClick={() => pageNum > 1 && handlePageChange(pageNum - 1)}
                 className={pageNum === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
               />
             </PaginationItem>
@@ -325,7 +409,7 @@ export default function QueryReportsPage(props) {
               return (
                 <PaginationItem key={page}>
                   <PaginationLink
-                    onClick={() => setPageNum(page)}
+                    onClick={() => handlePageChange(page)}
                     isActive={pageNum === page}
                     className="cursor-pointer"
                   >
@@ -337,9 +421,9 @@ export default function QueryReportsPage(props) {
 
             <PaginationItem>
               <PaginationNext
-                onClick={() => pageNum < totalPages && fetchReports(pageNum + 1)}
+                onClick={() => pageNum < totalPages && handlePageChange(pageNum + 1)}
                 className={
-                  pageNum === pagination.totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'
+                  pageNum === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'
                 }
               />
             </PaginationItem>
@@ -347,7 +431,7 @@ export default function QueryReportsPage(props) {
         </Pagination>
       </div>
     );
-  }, [pageNum, totalPages, fetchReports, total]);
+  }, [pageNum, totalPages, handlePageChange, total]);
 
   // 计算统计数据
   const qualifiedCount = useMemo(
@@ -414,6 +498,10 @@ export default function QueryReportsPage(props) {
                   <Button variant="outline" size="sm" onClick={selection.clearSelection}>
                     取消选择
                   </Button>
+                  <Button size="sm" variant="outline" onClick={handleBatchGenerateApprovedReports}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    批量生成
+                  </Button>
                   <Button size="sm" onClick={handleBatchDownload} className="bg-blue-600 hover:bg-blue-700">
                     <Download className="w-4 h-4 mr-2" />
                     批量下载
@@ -454,11 +542,16 @@ export default function QueryReportsPage(props) {
                 reports={reports}
                 selectedReports={selection.selectedItems}
                 expandedRows={expand.expandedItems}
-                onSelectReport={selection.toggleSelection}
-                onSelectAll={(checked) => selection.toggleSelectAll(currentReports, checked)}
-                onToggleExpand={expand.toggleExpand}
+                onSelectReport={(columnSn) => selection.toggleSelection(columnSn)}
+                onSelectAll={(checked) =>
+                  selection.toggleSelectAll(
+                    currentReports.map((r) => ({ id: r.columnSn })),
+                    checked
+                  )
+                }
                 onPreview={handlePreview}
                 onDownload={handleDownload}
+                onGenerate={handleGenerateApprovedReport}
               />
             )}
           </CardContent>
@@ -480,6 +573,55 @@ export default function QueryReportsPage(props) {
             </CardContent>
           </Card>}
       </div>
+
+      {/* 报告预览对话框 */}
+      <Dialog open={previewDialogOpen} onOpenChange={handleClosePreview}>
+        <DialogContent className="max-w-4xl w-full h-[80vh] flex flex-col">
+          <DialogHeader>
+            <div className="flex justify-between items-center">
+              <DialogTitle>{previewTitle}</DialogTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDownload(previewColumnSn)}
+                disabled={!previewColumnSn}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                下载文件
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            {previewLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                <span className="ml-2 text-gray-500">加载中...</span>
+              </div>
+            ) : previewError ? (
+              <div className="flex items-center justify-center py-12">
+                <span className="text-gray-500">{previewError}</span>
+              </div>
+            ) : previewUrl && (
+              <div className="w-full h-full flex flex-col min-h-0">
+                <div className="text-sm text-gray-600 mb-2 p-2 bg-blue-50 rounded">
+                  如果预览不显示，请尝试下载文件进行查看。
+                </div>
+                <iframe
+                  src={previewUrl}
+                  className="w-full flex-1 min-h-0 border-0"
+                  title="报告预览"
+                  onLoad={() => {
+                    console.log('报告预览已加载');
+                  }}
+                  onError={(e) => {
+                    console.error('预览加载失败:', e);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>;
 }

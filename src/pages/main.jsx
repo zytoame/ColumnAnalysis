@@ -4,6 +4,7 @@ import { FileText, Search, CheckCircle, AlertTriangle, Shield, ArrowRight, Clock
 import { WorkOrderStats } from '@/components/WorkOrderStats';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES } from '@/constants';
+import reportApi from '@/api/report';
 
 // 当前用户信息
 const currentUser = {
@@ -11,58 +12,61 @@ const currentUser = {
   type: USER_TYPES.ADMIN,
 };
 
-// 功能模块配置
-const functionModules = [
-  {
-    id: 'unqualified-reports',
-    title: '不合格层析柱管理',
-    description: '管理和编辑不合格的层析柱检测数据',
-    icon: AlertTriangle,
-    color: 'red',
-    stats: {
-      total: 3,
-      pending: 2,
-    },
-    pageId: 'unqualified-reports',
-  },
-  {
-    id: 'query-reports',
-    title: '查询报告',
-    description: '查询和生成各类检测报告',
-    icon: Search,
-    color: 'blue',
-    stats: {
-      total: 156,
-      today: 8,
-      thisWeek: 23,
-    },
-    pageId: 'query-reports',
-  },
-  {
-    id: 'batch-audit',
-    title: '批量审核签字',
-    description: '批量审核待审核的层析柱',
-    icon: CheckCircle,
-    color: 'green',
-    stats: {
-      total: 3,
-      pending: 2,
-      completed: 1,
-    },
-    pageId: 'batch-audit',
-  },
-];
-
 export default function MainPage(props) {
   const { $w, style } = props;
   const { toast } = useToast();
 
   // 状态管理
   const [recentActivities, setRecentActivities] = useState([]);
+  const [statistics, setStatistics] = useState({
+    totalReports: 0,
+    approvedReports: 0,
+    pendingReports: 0,
+    unqualifiedReports: 0,
+  });
+
+  const functionModules = useMemo(() => {
+    return [
+      {
+        id: 'unqualified-reports',
+        title: '不合格层析柱管理',
+        description: '管理和编辑不合格的层析柱检测数据',
+        icon: AlertTriangle,
+        color: 'red',
+        stats: {
+          total: statistics.unqualifiedReports,
+        },
+        pageId: 'unqualified-reports',
+      },
+      {
+        id: 'batch-audit',
+        title: '批量审核签字',
+        description: '批量审核待审核的层析柱',
+        icon: CheckCircle,
+        color: 'green',
+        stats: {
+          pending: statistics.pendingReports,
+          completed: statistics.approvedReports,
+        },
+        pageId: 'batch-audit',
+      },
+      {
+        id: 'query-reports',
+        title: '查询报告',
+        description: '查询和下载各类检测报告',
+        icon: Search,
+        color: 'blue',
+        stats: {
+          total: statistics.totalReports,
+        },
+        pageId: 'query-reports',
+      },
+    ];
+  }, [statistics]);
 
   // TODO: 从后端获取最近活动记录
   // 需要调用接口获取用户的操作历史
-  const fetchRecentActivities = async () => {
+  const fetchRecentActivities = useCallback(async () => {
     try {
       // TODO: 替换为实际的数据源调用
       // const result = await $w.cloud.callDataSource({
@@ -85,12 +89,28 @@ export default function MainPage(props) {
     } catch (error) {
       console.error('获取最近活动失败:', error);
     }
-  };
+  }, []);
+
+  const fetchStatistics = useCallback(async () => {
+    try {
+      const response = await reportApi.getStatistics();
+      const data = response?.data || {};
+      setStatistics({
+        totalReports: data.totalReports || 0,
+        approvedReports: data.approvedReports || 0,
+        pendingReports: data.pendingReports || 0,
+        unqualifiedReports: data.unqualifiedReports || 0,
+      });
+    } catch (error) {
+      console.error('获取统计数据失败:', error);
+    }
+  }, []);
 
   // 组件挂载时获取数据
   useEffect(() => {
     fetchRecentActivities();
-  }, [fetchRecentActivities]);
+    fetchStatistics();
+  }, [fetchRecentActivities, fetchStatistics]);
 
   // 页面跳转处理
   const handleNavigateToPage = useCallback(

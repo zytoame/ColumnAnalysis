@@ -3,7 +3,7 @@ import React from 'react';
 // @ts-ignore;
 import { Button, Badge, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Checkbox } from '@/components/ui';
 // @ts-ignore;
-import { Eye, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { Eye, ChevronDown, ChevronUp, Download, FileText } from 'lucide-react';
 // @ts-ignore;
 import { DetectionDataCard } from '@/components/DetectionDataCard.jsx';
 
@@ -16,18 +16,20 @@ export const ReportTable = ({
   onToggleExpand,
   onPreview,
   onDownload,
+  onGenerate,
 }) => {
   // 判断当前页是否全选
-  const isAllSelected = reports.length > 0 && 
-    reports.every((report) => selectedReports.some(s => s.columnSn === report.columnSn));
+  const isAllSelected = reports.length > 0 &&
+    reports.every((report) => selectedReports.includes(report.columnSn));
+  const isSomeSelected = reports.some((report) => selectedReports.includes(report.columnSn));
   return (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead className="w-12">
             <Checkbox
-              checked={isAllSelected}
-              onCheckedChange={(checked) => onSelectAll(checked)}
+              checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
+              onCheckedChange={(checked) => onSelectAll(checked === true)}
             />
           </TableHead>
           <TableHead>层析柱序列号</TableHead>
@@ -52,8 +54,8 @@ export const ReportTable = ({
             <TableRow className="hover:bg-gray-50">
               <TableCell>
                 <Checkbox
-                  checked={selectedReports.some(s => s.columnSn === report.columnSn)}
-                  onCheckedChange={() => onSelectReport(report)}
+                  checked={selectedReports.includes(report.columnSn)}
+                  onCheckedChange={() => onSelectReport(report.columnSn)}
                 />
               </TableCell>
               <TableCell className="font-medium">{report.columnSn}</TableCell>
@@ -67,39 +69,6 @@ export const ReportTable = ({
               </TableCell>
               <TableCell>{report.inspectionDate}</TableCell>
               <TableCell>
-                {/* <div className="flex space-x-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onToggleExpand(report.columnSn)}
-                    className="h-8 w-8 p-0"
-                    title="展开详情"
-                  >
-                    {expandedRows.includes(report.columnSn) ? (
-                      <ChevronUp className="w-4 h-4" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" />
-                    )}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onPreview(report.columnSn)}
-                    className="h-8 w-8 p-0"
-                    title="预览详情"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onDownload(report.columnSn)}
-                    className="h-8 w-8 p-0"
-                    title="下载报告"
-                  >
-                    <Download className="w-4 h-4" />
-                  </Button>
-                </div> */}
                 <div className="flex items-center gap-2">
                   {/* 必须传入 report 对象 */}
                   {/* 展开/收起按钮 */}
@@ -117,6 +86,14 @@ export const ReportTable = ({
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => onPreview(report)}>
                     <Eye className="h-4 w-4 mr-1" /> 预览
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onGenerate?.(report)}
+                    disabled={!onGenerate}
+                  >
+                    <FileText className="h-4 w-4 mr-1" /> 生成
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => onDownload(report)}>
                     <Download className="h-4 w-4 mr-1" /> 下载

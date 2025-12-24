@@ -5,11 +5,15 @@ const API_BASE_URL = '/api'; // 根据实际部署调整
 const reportApi = {
   // 单报告生成
   generateReport: (columnSn) => 
-    axios.post(`${API_BASE_URL}/report/generate`, { columnSn }),
+    axios.post(`${API_BASE_URL}/report/generate`, { columnSn }, { responseType: 'blob' }),
 
   // 批量生成
   generateBatchReports: (columnSns) =>
-    axios.post(`${API_BASE_URL}/report/generate-batch`, columnSns),
+    axios.post(`${API_BASE_URL}/report/generate-batch`, columnSns, { responseType: 'blob' }),
+
+  // 批量生成（仅生成不下载）
+  generateBatchReportsOnly: (columnSns) =>
+    axios.post(`${API_BASE_URL}/report/generate-batch-only`, columnSns).then((response) => response.data),
 
   // 查询报告
   getReportsByColumn: (columnSn, pageNum = 1, pageSize = 10) =>
@@ -36,7 +40,7 @@ const reportApi = {
   // 批量下载报告
   downloadBatchReports: (columnSns) =>
     axios.post(`${API_BASE_URL}/report/download-batch`, columnSns, {
-      responseType: 'json'
+      responseType: 'blob'
     }),
 
   // 预览报告
