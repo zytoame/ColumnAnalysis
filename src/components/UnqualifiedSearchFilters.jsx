@@ -43,8 +43,8 @@ export function UnqualifiedSearchFilters({
       placeholder: '选择检测模式',
       options: [
         { value: 'all', label: '全部模式' },
-        { value: '糖化模式', label: '糖化模式' },
-        { value: '地贫模式', label: '地贫模式' },
+        { value: '糖化', label: '糖化模式' },
+        { value: '地贫', label: '地贫模式' },
       ],
     },
   ];

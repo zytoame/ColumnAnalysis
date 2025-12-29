@@ -1,9 +1,10 @@
 // @ts-ignore;
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 // @ts-ignore;
-import { Button, Input, Card, CardContent, CardHeader, CardTitle, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
+import { Button, Input, Card, CardContent, CardHeader, CardTitle, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@/components/ui';
 // @ts-ignore;
 import { X, Save, Edit2, Thermometer, Gauge, Timer, Activity, AlertTriangle, Calculator, RefreshCw } from 'lucide-react';
+import columnApi from '@/api/column';
 
 export function EditModal({
   isOpen,
@@ -12,19 +13,301 @@ export function EditModal({
   onSave,
   saving
 }) {
+  const { toast } = useToast();
   const [editedReport, setEditedReport] = useState(report || {});
   const [activeTab, setActiveTab] = useState('detection'); // 默认显示检测数据标签页
+
+  const baselineRef = useRef(null);
+  const isInitializingRef = useRef(false);
 
   // 如果报告数据变化，更新编辑状态
   useEffect(() => {
     if (report) {
-      setEditedReport({
-        ...report,
-        // 深拷贝检测数据以避免直接修改原数据
-        detectionData: JSON.parse(JSON.stringify(report.detectionData || {}))
+      isInitializingRef.current = true;
+      setEditedReport(() => {
+        const next = {
+          ...report,
+          // 深拷贝检测数据以避免直接修改原数据
+          detectionData: JSON.parse(JSON.stringify(report.detectionData || {}))
+        };
+        baselineRef.current = JSON.parse(JSON.stringify(next));
+        return next;
+      });
+      // 让首次渲染/回填不触发变更记录
+      queueMicrotask(() => {
+        isInitializingRef.current = false;
       });
     }
   }, [report]);
+
+  const pushChangeLog = (fieldPath, oldValue, newValue, source = 'user') => {
+    // 仅在保存时生成最终 changeLogs，避免记录中间过程来回变动
+    return;
+  };
+
+  const normalizeFieldPath = (p) => {
+    if (!p) return '';
+    return String(p).replace(/^detectionData\./, '');
+  };
+
+  const buildFinalChangeLogs = (baseline, current) => {
+    const now = new Date().toISOString();
+    const logs = [];
+
+    const bDet = baseline?.detectionData || {};
+    const cDet = current?.detectionData || {};
+
+    const push = (fieldPath, oldValue, newValue) => {
+      const oldStr = oldValue == null ? '' : String(oldValue);
+      const newStr = newValue == null ? '' : String(newValue);
+      if (oldStr === newStr) return;
+      const normalized = normalizeFieldPath(fieldPath);
+      const source = /(\.conclusion$)|(repeatabilityTest\.result$)|(repeatabilityTest\.conclusion$)/.test(normalized)
+        ? 'auto'
+        : 'user';
+      logs.push({
+        fieldPath: normalized,
+        oldValue: oldStr,
+        newValue: newStr,
+        source,
+        changedAt: now,
+      });
+    };
+
+    const keys = new Set([...Object.keys(bDet), ...Object.keys(cDet)]);
+    keys.forEach((key) => {
+      const bItem = bDet?.[key] || {};
+      const cItem = cDet?.[key] || {};
+
+      // 重复性原始测值：逐项对比
+      if (key === 'repeatabilityTest') {
+        const bRaw = bItem?.rawValues || {};
+        const cRaw = cItem?.rawValues || {};
+
+        const bObj = Array.isArray(bRaw) ? { '糖化模式': bRaw } : bRaw;
+        const cObj = Array.isArray(cRaw) ? { '糖化模式': cRaw } : cRaw;
+        const cats = new Set([...Object.keys(bObj || {}), ...Object.keys(cObj || {})]);
+        cats.forEach((cat) => {
+          const bArr = Array.isArray(bObj?.[cat]) ? bObj[cat] : [];
+          const cArr = Array.isArray(cObj?.[cat]) ? cObj[cat] : [];
+          const max = Math.max(bArr.length, cArr.length);
+          for (let i = 0; i < max; i++) {
+            push(`detectionData.repeatabilityTest.rawValues.${cat}[${i}]`, bArr[i], cArr[i]);
+          }
+        });
+
+        // repeatabilityTest 本身的字段
+        ['standard', 'result', 'conclusion'].forEach((f) => {
+          push(`detectionData.repeatabilityTest.${f}`, bItem?.[f], cItem?.[f]);
+        });
+        return;
+      }
+
+      // 常规检测项
+      ['standard', 'result', 'conclusion'].forEach((f) => {
+        if (bItem?.[f] === undefined && cItem?.[f] === undefined) return;
+        push(`detectionData.${key}.${f}`, bItem?.[f], cItem?.[f]);
+      });
+    });
+
+    return logs;
+  };
+
+  const parseNumber = (v) => {
+    if (v == null) return null;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+    const s = String(v).trim();
+    if (!s) return null;
+    const num = parseFloat(s.replace(/[^0-9.+-]/g, ''));
+    return Number.isFinite(num) ? num : null;
+  };
+
+  const parseRangeStandard = (standardText) => {
+    if (!standardText) return { min: null, max: null };
+    const s = String(standardText).trim();
+    const rangeMatch = s.match(/(-?\d+(?:\.\d+)?)\s*~\s*(-?\d+(?:\.\d+)?)/);
+    if (rangeMatch) {
+      return { min: parseFloat(rangeMatch[1]), max: parseFloat(rangeMatch[2]) };
+    }
+    const gteMatch = s.match(/>=\s*(-?\d+(?:\.\d+)?)/);
+    if (gteMatch) return { min: parseFloat(gteMatch[1]), max: null };
+    const lteMatch = s.match(/<=\s*(-?\d+(?:\.\d+)?)/);
+    if (lteMatch) return { min: null, max: parseFloat(lteMatch[1]) };
+    return { min: null, max: null };
+  };
+
+  const computeConclusionByStandard = (standardText, resultText) => {
+    const result = parseNumber(resultText);
+    if (result == null) return 'fail';
+
+    const { min, max } = parseRangeStandard(standardText);
+    if (min == null && max == null) return 'fail';
+    if (min != null && result < min) return 'fail';
+    if (max != null && result > max) return 'fail';
+    return 'pass';
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const columnSn = report?.columnSn;
+    if (!isOpen || !columnSn) return;
+
+    (async () => {
+      try {
+        const response = await columnApi.getRepeatabilityData(columnSn);
+        const body = response?.data;
+        const raw = body?.data ?? null;
+        if (!body?.success || raw == null) {
+          throw new Error(body?.errorMsg || '未获取到重复性测值');
+        }
+
+        const normalized = {};
+
+        // 兼容返回：{ type: [..] } 或 { type: "[..]" }
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+          Object.entries(raw).forEach(([k, arr]) => {
+            if (Array.isArray(arr)) {
+              normalized[k] = arr.map((v) => (v == null ? '' : String(v)));
+              return;
+            }
+            if (typeof arr === 'string') {
+              try {
+                const parsed = JSON.parse(arr);
+                if (Array.isArray(parsed)) {
+                  normalized[k] = parsed.map((v) => (v == null ? '' : String(v)));
+                }
+              } catch (e) {
+                // ignore
+              }
+            }
+          });
+        }
+
+        // 兼容返回：[{ type, testValue }] 或 [{ type, values }]
+        if (Array.isArray(raw)) {
+          raw.forEach((item) => {
+            const type = item?.type;
+            if (!type || normalized[type]) return;
+            const values = item?.values;
+            const testValue = item?.testValue;
+
+            if (Array.isArray(values)) {
+              normalized[type] = values.map((v) => (v == null ? '' : String(v)));
+              return;
+            }
+
+            if (typeof testValue === 'string') {
+              try {
+                const parsed = JSON.parse(testValue);
+                if (Array.isArray(parsed)) {
+                  normalized[type] = parsed.map((v) => (v == null ? '' : String(v)));
+                }
+              } catch (e) {
+                // ignore
+              }
+            }
+          });
+        }
+
+        if (Object.keys(normalized).length === 0) {
+          toast({
+            title: '未加载到重复性测值',
+            description: '数据库未返回该层析柱的重复性测值（或返回格式不匹配）',
+            variant: 'destructive',
+          });
+        }
+
+        if (cancelled) return;
+        isInitializingRef.current = true;
+        setEditedReport((prev) => {
+          const detectionData = prev?.detectionData || {};
+          const repeatabilityTest = detectionData?.repeatabilityTest || {};
+          const next = {
+            ...prev,
+            detectionData: {
+              ...detectionData,
+              repeatabilityTest: {
+                ...repeatabilityTest,
+                rawValues: normalized,
+              },
+            },
+          };
+          baselineRef.current = JSON.parse(JSON.stringify(next));
+          return next;
+        });
+        queueMicrotask(() => {
+          isInitializingRef.current = false;
+        });
+      } catch (e) {
+        if (cancelled) return;
+        toast({
+          title: '加载重复性测值失败',
+          description: e instanceof Error ? e.message : '无法加载重复性测值',
+          variant: 'destructive',
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, report?.columnSn]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const rawValues = editedReport?.detectionData?.repeatabilityTest?.rawValues;
+    if (!rawValues) return;
+    const cvValue = calculateCV(rawValues);
+    if (!Number.isFinite(cvValue)) return;
+    const standardValue = parseFloat(
+      editedReport?.detectionData?.repeatabilityTest?.standard?.replace(/[^0-9.]/g, '') || 1.5
+    );
+    const conclusion = cvValue <= standardValue ? 'pass' : 'fail';
+    const nextCv = `${cvValue.toFixed(2)}%`;
+    setEditedReport((prev) => {
+      const prevCv = prev?.detectionData?.repeatabilityTest?.result;
+      const prevConclusion = prev?.detectionData?.repeatabilityTest?.conclusion;
+      pushChangeLog('detectionData.repeatabilityTest.result', prevCv, nextCv, 'auto');
+      pushChangeLog('detectionData.repeatabilityTest.conclusion', prevConclusion, conclusion, 'auto');
+      return {
+        ...prev,
+        detectionData: {
+          ...prev.detectionData,
+          repeatabilityTest: {
+            ...(prev.detectionData?.repeatabilityTest || {}),
+            result: nextCv,
+            conclusion,
+          },
+        },
+      };
+    });
+  }, [editedReport?.detectionData?.repeatabilityTest?.rawValues, editedReport?.detectionData?.repeatabilityTest?.standard, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const detectionData = editedReport?.detectionData || {};
+    Object.entries(detectionData).forEach(([key, data]) => {
+      if (!data) return;
+      if (key === 'repeatabilityTest') return;
+      const nextConclusion = computeConclusionByStandard(data.standard, data.result);
+      if (data.conclusion !== nextConclusion) {
+        setEditedReport((prev) => {
+          const prevConclusion = prev?.detectionData?.[key]?.conclusion;
+          pushChangeLog(`detectionData.${key}.conclusion`, prevConclusion, nextConclusion, 'auto');
+          return {
+            ...prev,
+            detectionData: {
+              ...prev.detectionData,
+              [key]: {
+                ...(prev.detectionData?.[key] || {}),
+                conclusion: nextConclusion,
+              },
+            },
+          };
+        });
+      }
+    });
+  }, [computeConclusionByStandard, editedReport?.detectionData, isOpen]);
 
   // 更新基本信息 - 禁用修改
   const updateBasicInfo = (field, value) => {
@@ -34,16 +317,20 @@ export function EditModal({
 
   // 更新检测数据
   const updateDetectionData = (key, field, value) => {
-    setEditedReport(prev => ({
-      ...prev,
-      detectionData: {
-        ...prev.detectionData,
-        [key]: {
-          ...prev.detectionData[key],
-          [field]: value
+    setEditedReport((prev) => {
+      const prevVal = prev?.detectionData?.[key]?.[field];
+      pushChangeLog(`detectionData.${key}.${field}`, prevVal, value, 'user');
+      return {
+        ...prev,
+        detectionData: {
+          ...prev.detectionData,
+          [key]: {
+            ...prev.detectionData[key],
+            [field]: value
+          }
         }
-      }
-    }));
+      };
+    });
   };
 
   // 更新重复性测试的原始测值
@@ -56,18 +343,40 @@ export function EditModal({
       currentValues[category] = [];
     }
     const newCategoryValues = [...currentValues[category]];
+    const prevValue = newCategoryValues[index];
     newCategoryValues[index] = value;
     currentValues[category] = newCategoryValues;
+
+    pushChangeLog(`detectionData.repeatabilityTest.rawValues.${category}[${index}]`, prevValue, value, 'user');
 
     // 重新计算CV值
     const cvValue = calculateCV(currentValues);
     const conclusion = cvValue <= parseFloat(currentData.standard?.replace(/[^0-9.]/g, '') || 1.5) ? 'pass' : 'fail';
-    updateDetectionData('repeatabilityTest', 'rawValues', currentValues);
-    updateDetectionData('repeatabilityTest', 'result', `${cvValue.toFixed(2)}%`);
-    updateDetectionData('repeatabilityTest', 'conclusion', conclusion);
+    // rawValues 变更已记录，这里避免重复以“user”来源记录；CV/结论记录为 auto
+    setEditedReport((prev) => {
+      const prevCv = prev?.detectionData?.repeatabilityTest?.result;
+      const nextCv = `${cvValue.toFixed(2)}%`;
+      const prevConclusion = prev?.detectionData?.repeatabilityTest?.conclusion;
+
+      pushChangeLog('detectionData.repeatabilityTest.result', prevCv, nextCv, 'auto');
+      pushChangeLog('detectionData.repeatabilityTest.conclusion', prevConclusion, conclusion, 'auto');
+
+      return {
+        ...prev,
+        detectionData: {
+          ...prev.detectionData,
+          repeatabilityTest: {
+            ...(prev.detectionData?.repeatabilityTest || {}),
+            rawValues: currentValues,
+            result: nextCv,
+            conclusion,
+          },
+        },
+      };
+    });
   };
 
-  // 计算CV值（变异系数）- 支持多分类测值
+  // TODO计算CV值（变异系数）- 支持多分类测值，  
   const calculateCV = rawValues => {
     const allValues = [];
 
@@ -118,7 +427,12 @@ export function EditModal({
   // 保存编辑
   const handleSave = () => {
     if (onSave) {
-      onSave(editedReport);
+      const baseline = baselineRef.current || report || {};
+      const finalChangeLogs = buildFinalChangeLogs(baseline, editedReport);
+      onSave({
+        ...editedReport,
+        changeLogs: finalChangeLogs,
+      });
     }
   };
 
@@ -290,7 +604,13 @@ export function EditModal({
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">检测结果</label>
-                        <Input value={data.result || ''} onChange={e => updateDetectionData(key, 'result', e.target.value)} placeholder="请输入检测结果" />
+                        <Input
+                          value={data.result || ''}
+                          onChange={e => updateDetectionData(key, 'result', e.target.value)}
+                          placeholder="请输入检测结果"
+                          disabled={key === 'repeatabilityTest'}
+                          className={key === 'repeatabilityTest' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : undefined}
+                        />
                       </div>
                     </div>
                     
@@ -327,8 +647,8 @@ export function EditModal({
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">结论</label>
-                      <Select value={data.conclusion || ''} onValueChange={value => updateDetectionData(key, 'conclusion', value)}>
-                        <SelectTrigger>
+                      <Select value={data.conclusion || ''} disabled>
+                        <SelectTrigger className="bg-gray-100 text-gray-500 cursor-not-allowed">
                           <SelectValue placeholder="选择结论" />
                         </SelectTrigger>
                         <SelectContent>

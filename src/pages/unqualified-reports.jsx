@@ -1,161 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui';
-import { Search, Download, Eye, FileText, User, ArrowLeft, AlertTriangle, Clock, Loader2, FileCheck } from 'lucide-react';
+import { Button, Card, CardContent, CardHeader, CardTitle, Badge, useToast, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui';
+import { User, ArrowLeft, AlertTriangle, Clock, Loader2, FileCheck } from 'lucide-react';
 import { EditModal } from '@/components/EditModal';
 import { DetailModal } from '@/components/DetailModal';
 import { UnqualifiedReportTable } from '@/components/UnqualifiedReportTable';
 import { UnqualifiedReportStats } from '@/components/UnqualifiedReportStats';
 import { UnqualifiedSearchFilters } from '@/components/UnqualifiedSearchFilters';
-import { usePagination } from '@/hooks/usePagination';
 import { useSelection } from '@/hooks/useSelection';
-import { filterData } from '@/utils/filters';
+import { useExpand } from '@/hooks/useExpand';
 import { generatePageNumbers } from '@/utils/pagination';
-import { getUserTypeLabel, getReportTypeLabel } from '@/utils/format';
-import { USER_TYPES, REPORT_TYPES, PAGINATION, DATE_RANGES } from '@/constants';
-
-// 简化的模拟不合格层析柱数据
-const mockUnqualifiedColumns = [
-  {
-    id: 'COL-001',
-    sapWorkOrderNo: 'WO202501001',
-    columnSn: 'COL-2025-001',
-    sapOrderNo: 'ORD-202501001',
-    deviceSn: 'INST-001',
-    reportType: 'glycation',
-    status: 'unqualified',
-    reportDate: '2025-01-15',
-    mode: '糖化模式',
-    status: '不合格',
-    负责人: '张三',
-    审核状态: 'pending',
-    不合格原因: '纯度低于标准值',
-    generateTime: '2025-01-15 14:30:00',
-    // 详细检测数据
-    detectionData: {
-      moduleTemperature: {
-        standard: '25-40°C',
-        result: '38.5°C',
-        conclusion: 'pass',
-        icon: 'Thermometer',
-      },
-      systemPressure: {
-        standard: '5.0-8.0 MPa',
-        result: '7.2 MPa',
-        conclusion: 'pass',
-        icon: 'Gauge',
-      },
-      hbA1cAppearanceTime: {
-        standard: '36-40 秒',
-        result: '42.3 秒',
-        conclusion: 'fail',
-        icon: 'Timer',
-      },
-      repeatabilityTest: {
-        standard: 'CV < 1.5%',
-        result: '1.8%',
-        conclusion: 'fail',
-        icon: 'Activity',
-        rawValues: {
-          糖化模式: Array.from({ length: 20 }, (_, i) => (35.5 + Math.random() * 0.8).toFixed(2)),
-        },
-      },
-    },
-  },
-  {
-    id: 'COL-002',
-    sapWorkOrderNo: 'WO202501002',
-    columnSn: 'COL-2025-002',
-    sapOrderNo: 'ORD-202501002',
-    deviceSn: 'INST-002',
-    reportType: 'thalassemia',
-    status: 'unqualified',
-    reportDate: '2025-01-14',
-    mode: '地贫模式',
-    status: '不合格',
-    负责人: '李四',
-    审核状态: 'pending',
-    不合格原因: 'pH值超出范围',
-    generateTime: '2025-01-14 16:45:00',
-    // 详细检测数据
-    detectionData: {
-      moduleTemperature: {
-        standard: '25-40°C',
-        result: '35.2°C',
-        conclusion: 'pass',
-        icon: 'Thermometer',
-      },
-      systemPressure: {
-        standard: '5.0-8.0 MPa',
-        result: '6.8 MPa',
-        conclusion: 'pass',
-        icon: 'Gauge',
-      },
-      hbA1cAppearanceTime: {
-        standard: '36-40 秒',
-        result: '38.1 秒',
-        conclusion: 'pass',
-        icon: 'Timer',
-      },
-      repeatabilityTest: {
-        standard: 'CV < 1.5%',
-        result: '2.1%',
-        conclusion: 'fail',
-        icon: 'Activity',
-        rawValues: {
-          HbF: Array.from({ length: 10 }, (_, i) => (32.5 + Math.random() * 0.6).toFixed(2)),
-          HbA1c: Array.from({ length: 10 }, (_, i) => (35.8 + Math.random() * 0.7).toFixed(2)),
-          HbA2: Array.from({ length: 10 }, (_, i) => (2.8 + Math.random() * 0.4).toFixed(2)),
-        },
-      },
-    },
-  },
-  {
-    id: 'COL-003',
-    sapWorkOrderNo: 'WO202501003',
-    columnSn: 'COL-2025-003',
-    sapOrderNo: 'ORD-202501003',
-    deviceSn: 'INST-001',
-    reportType: 'glycation',
-    status: 'unqualified',
-    reportDate: '2025-01-13',
-    mode: '糖化模式',
-    status: '不合格',
-    负责人: '王五',
-    审核状态: 'pending',
-    不合格原因: '杂质含量超标',
-    generateTime: '2025-01-13 11:20:00',
-    // 详细检测数据
-    detectionData: {
-      moduleTemperature: {
-        standard: '25-40°C',
-        result: '32.1°C',
-        conclusion: 'pass',
-        icon: 'Thermometer',
-      },
-      systemPressure: {
-        standard: '5.0-8.0 MPa',
-        result: '5.5 MPa',
-        conclusion: 'pass',
-        icon: 'Gauge',
-      },
-      hbA1cAppearanceTime: {
-        standard: '36-40 秒',
-        result: '39.8 秒',
-        conclusion: 'pass',
-        icon: 'Timer',
-      },
-      repeatabilityTest: {
-        standard: 'CV < 1.5%',
-        result: '1.9%',
-        conclusion: 'fail',
-        icon: 'Activity',
-        rawValues: {
-          糖化模式: Array.from({ length: 20 }, (_, i) => (36.2 + Math.random() * 0.9).toFixed(2)),
-        },
-      },
-    },
-  },
-];
+import { getUserTypeLabel } from '@/utils/format';
+import { USER_TYPES, PAGINATION, DATE_RANGES, TEST_TYPES, CONCLUSION_STATUS } from '@/constants';
+import columnApi from '@/api/column';
 
 export default function UnqualifiedReportsPage(props) {
   const { $w, style } = props;
@@ -171,6 +27,12 @@ export default function UnqualifiedReportsPage(props) {
   const [viewingColumn, setViewingColumn] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const [standardCache, setStandardCache] = useState({});
+
+  const [pageNum, setPageNum] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [total, setTotal] = useState(0);
+
   // 搜索条件
   const [searchParams, setSearchParams] = useState({
     sapWorkOrderNo: '',
@@ -180,12 +42,6 @@ export default function UnqualifiedReportsPage(props) {
     mode: TEST_TYPES.ALL,
     dateRange: DATE_RANGES.ALL,
   });
-
-  // 使用自定义 hooks
-  const { pageNum, setPageNum, pagination, reset: resetPagination } = usePagination(
-    filteredColumns,
-    { pageSize: PAGINATION.DEFAULT_PAGE_SIZE },
-  );
   const selection = useSelection();
   const expand = useExpand();
 
@@ -198,18 +54,144 @@ export default function UnqualifiedReportsPage(props) {
     [],
   );
 
-  // 当前页数据
-  const currentColumns = useMemo(() => pagination.currentItems, [pagination.currentItems]);
+  const currentColumns = useMemo(() => filteredColumns, [filteredColumns]);
 
-  // TODO: 获取不合格层析柱列表
-  const fetchUnqualifiedColumns = useCallback(async () => {
+  const parseNumber = useCallback((v) => {
+    if (v == null) return null;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+    const num = parseFloat(String(v).replace(/[^0-9.+-]/g, ''));
+    return Number.isFinite(num) ? num : null;
+  }, []);
+
+  const mapColumnToUi = useCallback((c) => {
+    return {
+      ...c,
+      id: c?.columnSn,
+      finalConclusion: CONCLUSION_STATUS.UNQUALIFIED,
+      testResult: '不合格',
+      testType: c?.mode,
+      workOrder: c?.sapWorkOrderNo,
+      orderNumber: c?.sapOrderNo,
+      instrumentSerial: c?.deviceSn,
+      testDate: c?.inspectionDate,
+      submitTime: c?.createdAt,
+      operator: c?.auditor,
+      detectionData: {
+        setTemperature: {
+          standard: '-',
+          result: c?.setTemperature != null ? `${c.setTemperature}` : '-',
+          conclusion: 'fail',
+          icon: 'Thermometer',
+        },
+        pressure: {
+          standard: '-',
+          result: c?.pressure != null ? `${c.pressure}` : '-',
+          conclusion: 'fail',
+          icon: 'Gauge',
+        },
+        peakTime: {
+          standard: '-',
+          result: c?.peakTime != null ? `${c.peakTime}` : '-',
+          conclusion: 'fail',
+          icon: 'Timer',
+        },
+        repeatabilityTest: {
+          standard: '-',
+          result: c?.cvValue != null ? `${c.cvValue}%` : '-',
+          conclusion: 'fail',
+          icon: 'Activity',
+          rawValues: {},
+        },
+      },
+    };
+  }, []);
+
+  const formatRange = useCallback((min, max) => {
+    const minV = min == null ? null : `${min}`;
+    const maxV = max == null ? null : `${max}`;
+    if (minV == null && maxV == null) return '-';
+    if (minV != null && maxV != null) return `${minV} ~ ${maxV}`;
+    if (minV != null) return `>= ${minV}`;
+    return `<= ${maxV}`;
+  }, []);
+
+  const applyStandardToReports = useCallback((columnSn, standard) => {
+    const standardText = {
+      setTemperature: formatRange(standard?.minTemperature, standard?.maxTemperature),
+      pressure: formatRange(standard?.minPressure, standard?.maxPressure),
+      peakTime: formatRange(standard?.minPeakTime, standard?.maxPeakTime),
+      repeatabilityTest: standard?.maxCv != null ? `<= ${standard.maxCv}%` : '-',
+    };
+
+    const patchOne = (report) => {
+      if (report?.columnSn !== columnSn) return report;
+      const d = report?.detectionData || {};
+      return {
+        ...report,
+        detectionData: {
+          ...d,
+          setTemperature: { ...(d.setTemperature || {}), standard: standardText.setTemperature },
+          pressure: { ...(d.pressure || {}), standard: standardText.pressure },
+          peakTime: { ...(d.peakTime || {}), standard: standardText.peakTime },
+          repeatabilityTest: {
+            ...(d.repeatabilityTest || {}),
+            standard: standardText.repeatabilityTest,
+          },
+        },
+      };
+    };
+
+    setUnqualifiedColumns((prev) => prev.map(patchOne));
+    setFilteredColumns((prev) => prev.map(patchOne));
+  }, [formatRange]);
+
+  const fetchAndCacheStandard = useCallback(async (columnSn) => {
+    if (!columnSn) return null;
+    if (standardCache[columnSn]) return standardCache[columnSn];
+
+    const response = await columnApi.getColumnStandard(columnSn);
+    const body = response?.data;
+    const standard = body?.data ?? null;
+    if (!body?.success || !standard) {
+      throw new Error(body?.errorMsg || '未获取到标准');
+    }
+    setStandardCache((prev) => ({ ...prev, [columnSn]: standard }));
+    return standard;
+  }, [standardCache]);
+
+  const handleToggleExpandWithStandard = useCallback(async (columnSn) => {
+    const isExpanded = expand.expandedItems.includes(columnSn);
+    if (isExpanded) {
+      expand.toggleExpand(columnSn);
+      return;
+    }
+
+    try {
+      const standard = await fetchAndCacheStandard(columnSn);
+      if (standard) applyStandardToReports(columnSn, standard);
+    } catch (error) {
+      console.error('获取层析柱标准失败:', error);
+      toast({
+        title: '获取标准失败',
+        description: '无法加载该层析柱的标准值，将以“-”显示',
+        variant: 'destructive',
+      });
+    } finally {
+      expand.toggleExpand(columnSn);
+    }
+  }, [applyStandardToReports, expand, fetchAndCacheStandard, toast]);
+
+  const fetchUnqualifiedColumns = useCallback(async (page = 1) => {
     setLoading(true);
     try {
-      // 替换为实际的数据源调用
-
-      // 临时使用模拟数据
-      setUnqualifiedColumns(mockUnqualifiedColumns);
-      setFilteredColumns(mockUnqualifiedColumns);
+      const response = await columnApi.getUnqualifiedColumns(page, PAGINATION.DEFAULT_PAGE_SIZE);
+      const data = response?.data || {};
+      const records = (data.records || []).map(mapColumnToUi);
+      setUnqualifiedColumns(records);
+      setFilteredColumns(records);
+      setPageNum(page);
+      setTotal(data.total || 0);
+      setTotalPages(data.pages || 0);
     } catch (error) {
       console.error('获取不合格层析柱失败:', error);
       toast({
@@ -220,20 +202,27 @@ export default function UnqualifiedReportsPage(props) {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [mapColumnToUi, toast]);
 
   // 搜索处理
-  const handleSearch = useCallback(() => {
+  const handleSearch = useCallback(async () => {
     setLoading(true);
     try {
-      // TODO: 替换为实际的数据源调用
-      // 临时使用前端过滤
-      const filtered = filterData(unqualifiedColumns, searchParams);
-      setFilteredColumns(filtered);
-      resetPagination();
+      const params = {
+        ...searchParams,
+        status: '不合格',
+        mode: searchParams.mode === TEST_TYPES.ALL ? '' : searchParams.mode,
+      };
+      const response = await columnApi.advancedSearch(params, 1, PAGINATION.DEFAULT_PAGE_SIZE);
+      const records = (response.records || []).map(mapColumnToUi);
+      setFilteredColumns(records);
+      setUnqualifiedColumns(records);
+      setPageNum(1);
+      setTotal(response.total || 0);
+      setTotalPages(response.pages || 0);
       toast({
         title: '查询完成',
-        description: `找到 ${filtered.length} 条不合格层析柱`,
+        description: `找到 ${response.total || 0} 条不合格层析柱`,
       });
     } catch (error) {
       console.error('搜索失败:', error);
@@ -245,7 +234,7 @@ export default function UnqualifiedReportsPage(props) {
     } finally {
       setLoading(false);
     }
-  }, [unqualifiedColumns, searchParams, resetPagination, toast]);
+  }, [mapColumnToUi, searchParams, toast]);
 
   // 重置搜索
   const handleReset = useCallback(() => {
@@ -257,29 +246,47 @@ export default function UnqualifiedReportsPage(props) {
       mode: TEST_TYPES.ALL,
       dateRange: DATE_RANGES.ALL,
     });
-    setFilteredColumns(unqualifiedColumns);
-    resetPagination();
-  }, [unqualifiedColumns, resetPagination]);
+    selection.clearSelection();
+    expand.collapseAll();
+    fetchUnqualifiedColumns(1);
+  }, [expand, fetchUnqualifiedColumns, selection]);
 
   // 保存编辑后的层析柱数据
   const handleSaveEdit = useCallback(
     async (updatedColumn) => {
       setSaving(true);
       try {
-        // TODO: 替换为实际的数据源调用
-        // 临时模拟保存过程
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        const updatedColumns = unqualifiedColumns.map((column) =>
-          column.id === updatedColumn.id ? updatedColumn : column,
-        );
-        setUnqualifiedColumns(updatedColumns);
-        setFilteredColumns(updatedColumns);
+        const req = {
+          columnSn: updatedColumn.columnSn,
+          setTemperature: parseNumber(updatedColumn?.detectionData?.setTemperature?.result),
+          pressure: parseNumber(updatedColumn?.detectionData?.pressure?.result),
+          peakTime: parseNumber(updatedColumn?.detectionData?.peakTime?.result),
+          cvValue: parseNumber(updatedColumn?.detectionData?.repeatabilityTest?.result),
+          changeLogs: Array.isArray(updatedColumn?.changeLogs) ? updatedColumn.changeLogs : [],
+          repeatabilityData: (() => {
+            const raw = updatedColumn?.detectionData?.repeatabilityTest?.rawValues || {};
+            const converted = {};
+            Object.entries(raw).forEach(([k, arr]) => {
+              if (!Array.isArray(arr)) return;
+              const nums = arr
+                .map((x) => parseNumber(x))
+                .filter((x) => x != null);
+              if (nums.length > 0) converted[k] = nums;
+            });
+            return Object.keys(converted).length > 0 ? converted : null;
+          })(),
+        };
+
+        await columnApi.updateColumnData(req);
+
         toast({
           title: '保存成功',
           description: `层析柱 ${updatedColumn.columnSn} 已更新`,
         });
         setShowEditModal(false);
         setEditingColumn(null);
+
+        fetchUnqualifiedColumns(pageNum);
       } catch (error) {
         console.error('保存失败:', error);
         const errorMessage = error instanceof Error ? error.message : '无法保存层析柱更改';
@@ -292,46 +299,7 @@ export default function UnqualifiedReportsPage(props) {
         setSaving(false);
       }
     },
-    [unqualifiedColumns, toast],
-  );
-
-  // 预览层析柱详情
-  const handlePreview = useCallback(
-    (columnId) => {
-      try {
-        // TODO: 替换为实际的数据源调用
-        const column = unqualifiedColumns.find((c) => c.id === columnId);
-        if (column) {
-          const detailColumn = {
-            ...column,
-            columnSerial: column.columnSn,
-            columnName: `${column.检测项目}层析柱`,
-            testType: column.检测项目,
-            testDate: column.reportDate,
-            operator: column.负责人,
-            finalConclusion: 'unqualified',
-            operationHistory: [
-              {
-                time: column.generateTime,
-                operator: column.负责人,
-                action: '提交检测',
-                remark: `完成${column.检测项目}，发现${column.不合格原因}`,
-              },
-            ],
-          };
-          setViewingColumn(detailColumn);
-          setShowDetailModal(true);
-        }
-      } catch (error) {
-        console.error('获取层析柱详情失败:', error);
-        toast({
-          title: '获取详情失败',
-          description: '无法加载层析柱详情',
-          variant: 'destructive',
-        });
-      }
-    },
-    [unqualifiedColumns, toast],
+    [fetchUnqualifiedColumns, pageNum, parseNumber, toast],
   );
 
   // 返回主页
@@ -344,20 +312,19 @@ export default function UnqualifiedReportsPage(props) {
 
   // 分页组件
   const renderPagination = useMemo(() => {
-    if (pagination.totalPages <= 1) return null;
-    const pageNumbers = generatePageNumbers(pageNum, pagination.totalPages);
+    if (totalPages <= 1) return null;
+    const pageNumbers = generatePageNumbers(pageNum, totalPages);
 
     return (
       <div className="flex items-center justify-between px-2">
         <div className="text-sm text-gray-500">
-          显示第 {pagination.startIndex + 1} - {Math.min(pagination.endIndex, filteredColumns.length)} 条，共{' '}
-          {filteredColumns.length} 条记录
+          共{total} 条记录，第{pageNum}/{totalPages}页
         </div>
         <Pagination>
           <PaginationContent>
             <PaginationItem>
               <PaginationPrevious
-                onClick={() => setPageNum((prev) => Math.max(prev - 1, 1))}
+                onClick={() => pageNum > 1 && fetchUnqualifiedColumns(pageNum - 1)}
                 className={pageNum === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
               />
             </PaginationItem>
@@ -373,7 +340,7 @@ export default function UnqualifiedReportsPage(props) {
               return (
                 <PaginationItem key={page}>
                   <PaginationLink
-                    onClick={() => setPageNum(page)}
+                    onClick={() => fetchUnqualifiedColumns(page)}
                     isActive={pageNum === page}
                     className="cursor-pointer"
                   >
@@ -385,9 +352,9 @@ export default function UnqualifiedReportsPage(props) {
 
             <PaginationItem>
               <PaginationNext
-                onClick={() => setPageNum((prev) => Math.min(prev + 1, pagination.totalPages))}
+                onClick={() => pageNum < totalPages && fetchUnqualifiedColumns(pageNum + 1)}
                 className={
-                  pageNum === pagination.totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'
+                  pageNum === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'
                 }
               />
             </PaginationItem>
@@ -395,11 +362,11 @@ export default function UnqualifiedReportsPage(props) {
         </Pagination>
       </div>
     );
-  }, [pageNum, pagination, filteredColumns.length, setPageNum]);
+  }, [fetchUnqualifiedColumns, pageNum, total, totalPages]);
 
   // 组件挂载时获取数据
   useEffect(() => {
-    fetchUnqualifiedColumns();
+    fetchUnqualifiedColumns(1);
   }, [fetchUnqualifiedColumns]);
 
   // 统计概览数据
@@ -516,11 +483,16 @@ export default function UnqualifiedReportsPage(props) {
                 reports={currentColumns}
                 selectedReports={selection.selectedItems}
                 expandedRows={expand.expandedItems}
-                onSelectReport={selection.toggleSelection}
-                onSelectAll={(checked) => selection.toggleSelectAll(currentColumns, checked)}
-                onToggleExpand={expand.toggleExpand}
-                onEdit={(columnId) => {
-                  const column = unqualifiedColumns.find((c) => c.id === columnId);
+                onSelectReport={(id) => selection.toggleSelection(id)}
+                onSelectAll={(checked) =>
+                  selection.toggleSelectAll(
+                    currentColumns.map((c) => ({ id: c.columnSn })),
+                    checked
+                  )
+                }
+                onToggleExpand={handleToggleExpandWithStandard}
+                onEdit={(columnSn) => {
+                  const column = unqualifiedColumns.find((c) => c.columnSn === columnSn);
                   if (column) {
                     setEditingColumn({
                       ...column,
@@ -529,7 +501,6 @@ export default function UnqualifiedReportsPage(props) {
                     setShowEditModal(true);
                   }
                 }}
-                onPreview={handlePreview}
               />
             )}
           </CardContent>

@@ -14,7 +14,7 @@ export function UnqualifiedReportTable({
   onSelectReport,
   onSelectAll,
   onToggleExpand,
-  onPreview,
+  onEdit,
 }) {
   return (
     <Table>
@@ -25,7 +25,7 @@ export function UnqualifiedReportTable({
               type="checkbox"
               checked={
                 reports.length > 0 &&
-                reports.every((report) => selectedReports.includes(report.id))
+                reports.every((report) => selectedReports.includes(report.columnSn))
               }
               onChange={(e) => onSelectAll(e.target.checked)}
               className="rounded border-gray-300"
@@ -43,43 +43,37 @@ export function UnqualifiedReportTable({
       </TableHeader>
       <TableBody>
         {reports.map((report) => (
-          <React.Fragment key={report.id}>
+          <React.Fragment key={report.columnSn}>
             <TableRow className="hover:bg-gray-50">
               <TableCell>
                 <input
                   type="checkbox"
-                  checked={selectedReports.includes(report.id)}
-                  onChange={() => onSelectReport(report.id)}
+                  checked={selectedReports.includes(report.columnSn)}
+                  onChange={() => onSelectReport(report.columnSn)}
                   className="rounded border-gray-300"
                 />
               </TableCell>
               <TableCell className="font-medium">{report.columnSn}</TableCell>
-              <TableCell>{report.workOrder}</TableCell>
-              <TableCell>{report.orderNumber}</TableCell>
-              <TableCell>{report.instrumentSerial}</TableCell>
+              <TableCell>{report.sapWorkOrderNo}</TableCell>
+              <TableCell>{report.sapOrderNo}</TableCell>
+              <TableCell>{report.deviceSn}</TableCell>
               <TableCell>
-                <Badge variant={report.testType === '糖化模式' ? 'default' : 'secondary'}>
-                  {report.testType}
+                <Badge variant={report.mode === '糖化模式' ? 'default' : 'secondary'}>
+                  {report.mode}
                 </Badge>
               </TableCell>
-              <TableCell>{report.testDate}</TableCell>
-              <TableCell>
-                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                  <XCircle className="w-3 h-3 mr-1" />
-                  {report.testResult}
-                </Badge>
-              </TableCell>
-              <TableCell>{report.submitTime}</TableCell>
+              <TableCell>{report.preprocessColumnSn || '-'}</TableCell>
+              <TableCell>{report.inspectionDate || '-'}</TableCell>
               <TableCell>
                 <div className="flex space-x-1">
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => onToggleExpand(report.id)}
+                    onClick={() => onToggleExpand(report.columnSn)}
                     className="h-8 w-8 p-0"
                     title="展开详情"
                   >
-                    {expandedRows.includes(report.id) ? (
+                    {expandedRows.includes(report.columnSn) ? (
                       <ChevronUp className="w-4 h-4" />
                     ) : (
                       <ChevronDown className="w-4 h-4" />
@@ -88,20 +82,20 @@ export function UnqualifiedReportTable({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => onPreview(report.id)}
+                    onClick={() => onEdit && onEdit(report.columnSn)}
                     className="h-8 w-8 p-0"
-                    title="预览详情"
+                    title="编辑"
                   >
-                    <Eye className="w-4 h-4" />
+                    <XCircle className="w-4 h-4" />
                   </Button>
                 </div>
               </TableCell>
             </TableRow>
 
             {/* 展开的检测数据行 */}
-            {expandedRows.includes(report.id) && (
+            {expandedRows.includes(report.columnSn) && (
               <TableRow>
-                <TableCell colSpan={10} className="bg-gray-50 p-4">
+                <TableCell colSpan={9} className="bg-gray-50 p-4">
                   <DetectionDataCard
                     detectionData={report.detectionData || {}}
                     finalConclusion={report.finalConclusion || 'unqualified'}

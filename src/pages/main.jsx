@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Badge, useToast } from '@/components/ui';
-import { FileText, Search, CheckCircle, AlertTriangle, Shield, ArrowRight, Clock } from 'lucide-react';
+import { FileText, Search, CheckCircle, AlertTriangle, Shield, ArrowRight, Clock, Database } from 'lucide-react';
 import { WorkOrderStats } from '@/components/WorkOrderStats';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES } from '@/constants';
@@ -52,7 +52,7 @@ export default function MainPage(props) {
       },
       {
         id: 'query-reports',
-        title: '查询报告',
+        title: '下载报告',
         description: '查询和下载各类检测报告',
         icon: Search,
         color: 'blue',
@@ -60,6 +60,17 @@ export default function MainPage(props) {
           total: statistics.totalReports,
         },
         pageId: 'query-reports',
+      },
+      {
+        id: 'query-columns',
+        title: '层析柱查询',
+        description: '查询层析柱全量信息',
+        icon: Database,
+        color: 'blue',
+        stats: {
+          total: '-',
+        },
+        pageId: 'query-columns',
       },
     ];
   }, [statistics]);

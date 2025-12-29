@@ -21,38 +21,36 @@ const queryClient = new QueryClient();
 
 const App: React.FC = () => {
   return (
-    <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner position="top-center" />
-          <BrowserRouter history={history}>
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <Navigate
-                    to={`/${
-                      routers.find((item) => item.isHome)?.id || routers[0].id
-                    }`}
-                    replace
-                  />
-                }
-              />
-              {routers.map((item) => {
-                return (
-                  <Route
-                    key={item.id}
-                    path={`/${item.id}`}
-                    element={<PageWrapper id={item.id} Page={item.component} />}
-                  />
-                );
-              })}
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </React.StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner position="top-center" />
+        <BrowserRouter history={history}>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <Navigate
+                  to={`/${
+                    routers.find((item) => item.isHome)?.id || routers[0].id
+                  }`}
+                  replace
+                />
+              }
+            />
+            {routers.map((item) => {
+              return (
+                <Route
+                  key={item.id}
+                  path={`/${item.id}`}
+                  element={<PageWrapper id={item.id} Page={item.component} />}
+                />
+              );
+            })}
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 };
 

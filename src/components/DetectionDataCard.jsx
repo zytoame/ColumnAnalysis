@@ -83,7 +83,7 @@ export const DetectionDataCard = ({
 
   const renderItemLabel = (key) => {
     // 兼容不同字段命名：moduleTemperature / setTemperature 等
-    if (key === 'setTemperature') return '模块温度';
+    if (key === 'setTemperature') return '设置温度';
     if (key === 'pressure') return '系统压力';
     if (key === 'hbA1cAppearanceTime' || key === 'peakTime') return 'HbA1c出峰时间';
     if (key === 'repeatabilityTest') return '重复性测试';

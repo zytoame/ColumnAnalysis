@@ -43,8 +43,8 @@ export function BatchSearchFilters({
       placeholder: '选择检测类型',
       options: [
         { value: 'all', label: '全部类型' },
-        { value: '糖化模式', label: '糖化模式' },
-        { value: '地贫模式', label: '地贫模式' },
+        { value: '糖化', label: '糖化模式' },
+        { value: '地贫', label: '地贫模式' },
       ],
     },
   ];

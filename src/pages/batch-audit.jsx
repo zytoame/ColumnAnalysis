@@ -1,136 +1,20 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge, useToast, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, Badge, useToast, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 import { CheckCircle, ArrowLeft, PenTool, XCircle, Loader2, FileCheck, User, Thermometer, Gauge, Timer, Activity, Package } from 'lucide-react';
 import { BatchAuditTable } from '@/components/BatchAuditTable';
 import { BatchAuditStats } from '@/components/BatchAuditStats';
 import { BatchSearchFilters } from '@/components/BatchSearchFilters';
 import { DetailModal } from '@/components/DetailModal';
 import { SignaturePad } from '@/components/SignaturePad';
-import { usePagination } from '@/hooks/usePagination';
 import { useSelection } from '@/hooks/useSelection';
 import { useExpand } from '@/hooks/useExpand';
-import { filterData } from '@/utils/filters';
 import { generatePageNumbers } from '@/utils/pagination';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES, TEST_TYPES, PAGINATION, CONCLUSION_STATUS } from '@/constants';
+import columnApi from '@/api/column';
+import reportApi from '@/api/report';
 
-// 模拟数据（后续应移到单独文件）
-const mockPendingColumns = [
-  {
-    id: 'COL-001',
-    sapWorkOrderNo: 'WO202501001',
-    columnSn: 'COL-2025-001',
-    sapOrderNo: 'ORD-202501001',
-    deviceSn: 'INST-001',
-    columnName: 'Protein A Column',
-    mode: TEST_TYPES.GLYCATION,
-    testDate: '2025-01-15',
-    status: '合格',
-    operator: '张三',
-    submitTime: '2025-01-15 14:30:00',
-    detectionData: {
-      setTemperature: {
-        standard: '25-40°C',
-        result: '38.5°C',
-        conclusion: 'pass',
-        icon: Thermometer,
-      },
-      pressure: {
-        standard: '5.0-8.0 MPa',
-        result: '7.2 MPa',
-        conclusion: 'pass',
-        icon: Gauge,
-      },
-      peakTime: {
-        standard: '36-40 秒',
-        result: '40 秒',
-        conclusion: 'pass',
-        icon: Timer,
-      },
-      repeatabilityTest: {
-        standard: 'CV < 1.5%',
-        result: '1.4%',
-        conclusion: 'pass',
-        icon: Activity,
-      },
-      appearanceInspection: {
-        standard: '包装完整，无明显损坏',
-        result: '包装完整，无明显损坏',
-        conclusion: 'pass',
-        icon: Package,
-      },
-    },
-    finalConclusion: CONCLUSION_STATUS.UNQUALIFIED,
-    operationHistory: [
-      {
-        time: '2025-01-15 14:30:00',
-        operator: '张三',
-        action: '提交检测',
-        remark: '完成所有检测项目',
-      },
-      {
-        time: '2025-01-15 15:00:00',
-        operator: '系统',
-        action: '自动判定',
-        remark: '检测结果显示合格',
-      },
-    ],
-  },
-  {
-    id: 'COL-002',
-    sapWorkOrderNo: 'WO202501002',
-    columnSn: 'COL-2025-002',
-    sapOrderNo: 'ORD-202501002',
-    deviceSn: 'INST-002',
-    columnName: 'Ion Exchange Column',
-    mode: TEST_TYPES.THALASSEMIA,
-    testDate: '2025-01-14',
-    status: '合格',
-    operator: '李四',
-    submitTime: '2025-01-14 16:45:00',
-    detectionData: {
-      setTemperature: {
-        standard: '25-40°C',
-        result: '35.2°C',
-        conclusion: 'pass',
-        icon: Thermometer,
-      },
-      pressure: {
-        standard: '5.0-8.0 MPa',
-        result: '6.8 MPa',
-        conclusion: 'pass',
-        icon: Gauge,
-      },
-      peakTime: {
-        standard: '36-40 秒',
-        result: '38.1 秒',
-        conclusion: 'pass',
-        icon: Timer,
-      },
-      repeatabilityTest: {
-        standard: 'CV < 1.5%',
-        result: '1.2%',
-        conclusion: 'pass',
-        icon: Activity,
-      },
-      appearanceInspection: {
-        standard: '包装完整，无明显损坏',
-        result: '包装完好',
-        conclusion: 'pass',
-        icon: Package,
-      },
-    },
-    finalConclusion: CONCLUSION_STATUS.QUALIFIED,
-    operationHistory: [
-      {
-        time: '2025-01-14 16:45:00',
-        operator: '李四',
-        action: '提交检测',
-        remark: '完成地贫模式检测',
-      },
-    ],
-  },
-];
+
 
 export default function BatchAuditPage(props) {
   const { $w, style } = props;
@@ -145,6 +29,16 @@ export default function BatchAuditPage(props) {
   const [signing, setSigning] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [postApproveDialogOpen, setPostApproveDialogOpen] = useState(false);
+  const [approvedColumnSns, setApprovedColumnSns] = useState([]);
+  const [generatingAfterApprove, setGeneratingAfterApprove] = useState(false);
+
+  const [standardCache, setStandardCache] = useState({});
+
+  const [pageNum, setPageNum] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [total, setTotal] = useState(0);
+
   // 搜索条件
   const [searchParams, setSearchParams] = useState({
     sapWorkOrderNo: '',
@@ -154,11 +48,6 @@ export default function BatchAuditPage(props) {
     mode: TEST_TYPES.ALL,
   });
 
-  // 使用自定义 hooks
-  const { pageNum, setPageNum, pagination, reset: resetPagination } = usePagination(
-    filteredColumns,
-    { pageSize: PAGINATION.DEFAULT_PAGE_SIZE }
-  );
   const selection = useSelection();
   const expand = useExpand();
 
@@ -171,39 +60,131 @@ export default function BatchAuditPage(props) {
     []
   );
 
-  // 当前页数据
-  const currentColumns = useMemo(() => pagination.currentItems, [pagination.currentItems]);
+  const mapColumnToUi = useCallback((c) => {
+    const finalConclusion = c?.status === '合格' ? CONCLUSION_STATUS.QUALIFIED : CONCLUSION_STATUS.UNQUALIFIED;
+    return {
+      ...c,
+      id: c?.columnSn,
+      finalConclusion,
+      detectionData: {
+        setTemperature: {
+          standard: '-',
+          result: c?.setTemperature != null ? `${c.setTemperature}` : '-',
+          conclusion: c?.status === '合格' ? 'pass' : 'fail',
+          icon: 'Thermometer',
+        },
+        pressure: {
+          standard: '-',
+          result: c?.pressure != null ? `${c.pressure}` : '-',
+          conclusion: c?.status === '合格' ? 'pass' : 'fail',
+          icon: 'Gauge',
+        },
+        peakTime: {
+          standard: '-',
+          result: c?.peakTime != null ? `${c.peakTime}` : '-',
+          conclusion: c?.status === '合格' ? 'pass' : 'fail',
+          icon: 'Timer',
+        },
+        repeatabilityTest: {
+          standard: '-',
+          result: c?.cvValue != null ? `${c.cvValue}%` : '-',
+          conclusion: c?.status === '合格' ? 'pass' : 'fail',
+          icon: 'Activity',
+        },
+      },
+    };
+  }, []);
 
-  // TODO: 从后端获取待审核层析柱列表
-  // 需要调用接口获取所有待审核的层析柱
-  const fetchPendingColumns = useCallback(async () => {
+  const formatRange = useCallback((min, max) => {
+    const minV = min == null ? null : `${min}`;
+    const maxV = max == null ? null : `${max}`;
+    if (minV == null && maxV == null) return '-';
+    if (minV != null && maxV != null) return `${minV} ~ ${maxV}`;
+    if (minV != null) return `>= ${minV}`;
+    return `<= ${maxV}`;
+  }, []);
+
+  const applyStandardToColumns = useCallback((columnSn, standard) => {
+    const standardText = {
+      setTemperature: formatRange(standard?.minTemperature, standard?.maxTemperature),
+      pressure: formatRange(standard?.minPressure, standard?.maxPressure),
+      peakTime: formatRange(standard?.minPeakTime, standard?.maxPeakTime),
+      repeatabilityTest: standard?.maxCv != null ? `<= ${standard.maxCv}%` : '-',
+    };
+
+    const patchOne = (col) => {
+      if (col?.columnSn !== columnSn) return col;
+      const d = col?.detectionData || {};
+      return {
+        ...col,
+        detectionData: {
+          ...d,
+          setTemperature: { ...(d.setTemperature || {}), standard: standardText.setTemperature },
+          pressure: { ...(d.pressure || {}), standard: standardText.pressure },
+          peakTime: { ...(d.peakTime || {}), standard: standardText.peakTime },
+          repeatabilityTest: {
+            ...(d.repeatabilityTest || {}),
+            standard: standardText.repeatabilityTest,
+          },
+        },
+      };
+    };
+
+    setPendingColumns((prev) => prev.map(patchOne));
+    setFilteredColumns((prev) => prev.map(patchOne));
+  }, [formatRange]);
+
+  const fetchAndCacheStandard = useCallback(async (columnSn) => {
+    if (!columnSn) return null;
+    if (standardCache[columnSn]) return standardCache[columnSn];
+
+    const response = await columnApi.getColumnStandard(columnSn);
+    const body = response?.data;
+    const standard = body?.data ?? null;
+    if (!body?.success || !standard) {
+      throw new Error(body?.errorMsg || '未获取到标准');
+    }
+    setStandardCache((prev) => ({ ...prev, [columnSn]: standard }));
+    return standard;
+  }, [standardCache]);
+
+  const handleToggleExpandWithStandard = useCallback(async (columnSn) => {
+    const isExpanded = expand.expandedItems.includes(columnSn);
+    if (isExpanded) {
+      expand.toggleExpand(columnSn);
+      return;
+    }
+
+    try {
+      const standard = await fetchAndCacheStandard(columnSn);
+      if (standard) applyStandardToColumns(columnSn, standard);
+    } catch (error) {
+      console.error('获取层析柱标准失败:', error);
+      toast({
+        title: '获取标准失败',
+        description: '无法加载该层析柱的标准值，将以“-”显示',
+        variant: 'destructive',
+      });
+    } finally {
+      expand.toggleExpand(columnSn);
+    }
+  }, [applyStandardToColumns, expand, fetchAndCacheStandard, toast]);
+
+  // 当前页数据（后端已分页）
+  const currentColumns = useMemo(() => filteredColumns, [filteredColumns]);
+
+  const fetchPendingColumns = useCallback(async (page = 1) => {
     setLoading(true);
     try {
-      // TODO: 替换为实际的数据源调用
-      // const result = await $w?.cloud.callDataSource({
-      //   dataSourceName: 'chromatography_columns',
-      //   methodName: 'wedaGetRecordsV2',
-      //   params: {
-      //     filter: {
-      //       where: {
-      //         $and: [
-      //           { auditStatus: { $eq: 'pending' } },
-      //           { createBy: { $eq-current-user: true } }
-      //         ]
-      //       }
-      //     },
-      //     orderBy: [{ submitTime: 'desc' }],
-      //     select: { $master: true },
-      //     getCount: true,
-      //     pageSize: PAGINATION.MAX_PAGE_SIZE
-      //   }
-      // });
-      // setPendingColumns(result.records);
-      // setFilteredColumns(result.records);
+      const response = await columnApi.getPendingReviewColumns(page, PAGINATION.DEFAULT_PAGE_SIZE);
+      const data = response?.data || {};
+      const records = (data.records || []).map(mapColumnToUi);
 
-      // 临时使用模拟数据
-      setPendingColumns(mockPendingColumns);
-      setFilteredColumns(mockPendingColumns);
+      setPendingColumns(records);
+      setFilteredColumns(records);
+      setPageNum(page);
+      setTotal(data.total || 0);
+      setTotalPages(data.pages || 0);
     } catch (error) {
       console.error('获取待审核层析柱失败:', error);
       toast({
@@ -214,56 +195,28 @@ export default function BatchAuditPage(props) {
     } finally {
       setLoading(false);
     }
-  }, [$w, toast]);
+  }, [mapColumnToUi, toast]);
 
-  // TODO: 根据搜索条件过滤层析柱
-  // 需要调用后端接口进行高级搜索
-  const handleSearch = useCallback(() => {
+  const handleSearch = useCallback(async () => {
     setLoading(true);
     try {
-      // TODO: 替换为实际的数据源调用
-      // const filterConditions = {
-      //   $and: [
-      //     { auditStatus: { $eq: 'pending' } }
-      //   ]
-      // };
+      const params = {
+        ...searchParams,
+        status: '合格',
+        mode: searchParams.mode === TEST_TYPES.ALL ? '' : searchParams.mode,
+      };
 
-      // if (searchParams.workOrder) {
-      //   filterConditions.$and.push({ workOrder: { $eq: searchParams.workOrder } });
-      // }
-      // if (searchParams.columnSn) {
-      //   filterConditions.$and.push({ columnSn: { $eq: searchParams.columnSn } });
-      // }
-      // if (searchParams.orderNumber) {
-      //   filterConditions.$and.push({ orderNumber: { $eq: searchParams.orderNumber } });
-      // }
-      // if (searchParams.instrumentSerial) {
-      //   filterConditions.$and.push({ instrumentSerial: { $eq: searchParams.instrumentSerial } });
-      // }
-      // if (searchParams.testType !== 'all') {
-      //   filterConditions.$and.push({ testType: { $eq: searchParams.testType } });
-      // }
+      const response = await columnApi.advancedSearch(params, 1, PAGINATION.DEFAULT_PAGE_SIZE);
 
-      // const result = await $w.cloud.callDataSource({
-      //   dataSourceName: 'chromatography_columns',
-      //   methodName: 'wedaGetRecordsV2',
-      //   params: {
-      //     filter: { where: filterConditions },
-      //     orderBy: [{ submitTime: 'desc' }],
-      //     select: { $master: true },
-      //     getCount: true,
-      //     pageSize: 200
-      //   }
-      // });
-      // setFilteredColumns(result.records);
+      setFilteredColumns((response.records || []).map(mapColumnToUi));
+      setPendingColumns((response.records || []).map(mapColumnToUi));
+      setPageNum(1);
+      setTotal(response.total || 0);
+      setTotalPages(response.pages || 0);
 
-      // 临时使用前端过滤
-      const filtered = filterData(pendingColumns, searchParams);
-      setFilteredColumns(filtered);
-      resetPagination();
       toast({
         title: '查询完成',
-        description: `找到 ${filtered.length} 条待审核层析柱`,
+        description: `找到 ${response.total || 0} 条待审核层析柱`,
       });
     } catch (error) {
       console.error('搜索失败:', error);
@@ -275,7 +228,7 @@ export default function BatchAuditPage(props) {
     } finally {
       setLoading(false);
     }
-  }, [pendingColumns, searchParams, resetPagination, toast]);
+  }, [mapColumnToUi, searchParams, toast]);
 
   // 重置搜索
   const handleReset = useCallback(() => {
@@ -286,12 +239,12 @@ export default function BatchAuditPage(props) {
       deviceSn: '',
       mode: TEST_TYPES.ALL,
     });
-    setFilteredColumns(pendingColumns);
-    resetPagination();
-  }, [pendingColumns, resetPagination]);
+    selection.clearSelection();
+    expand.collapseAll();
+    fetchPendingColumns(1);
+  }, [expand, fetchPendingColumns, selection]);
 
-  // TODO: 批量审核通过
-  // 需要调用后端接口批量更新审核状态
+
   const handleBatchApprove = useCallback(() => {
     if (selection.selectedItems.length === 0) {
       toast({
@@ -308,21 +261,22 @@ export default function BatchAuditPage(props) {
   const handleConfirmBatchApprove = useCallback(
     async (signatureData) => {
       setSigning(true);
+      const columnSns = [...selection.selectedItems];
+      const approveCount = columnSns.length;
       try {
-        // TODO: 替换为实际的数据源调用
-        // 临时模拟审核过程
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        const updatedColumns = pendingColumns.filter(
-          (column) => !selection.selectedItems.includes(column.id)
-        );
-        setPendingColumns(updatedColumns);
-        setFilteredColumns(updatedColumns);
-        selection.clearSelection();
+        await columnApi.batchApprove(columnSns);
         setShowSignatureModal(false);
+        fetchPendingColumns(pageNum);
+        selection.clearSelection();
         toast({
           title: '批量审核成功',
-          description: `${selection.selectedItems.length} 个层析柱已审核通过`,
+          description: `${approveCount} 个层析柱已审核通过`,
         });
+
+        if (approveCount > 0) {
+          setApprovedColumnSns(columnSns);
+          setPostApproveDialogOpen(true);
+        }
       } catch (error) {
         console.error('批量审核失败:', error);
         const errorMessage = error instanceof Error ? error.message : '无法完成批量审核';
@@ -335,15 +289,90 @@ export default function BatchAuditPage(props) {
         setSigning(false);
       }
     },
-    [pendingColumns, selection, toast]
+    [fetchPendingColumns, pageNum, selection, toast]
   );
+
+  const handleGenerateOnlyAfterApprove = useCallback(async () => {
+    if (approvedColumnSns.length === 0) return;
+    setGeneratingAfterApprove(true);
+    try {
+      const result = await reportApi.generateBatchReportsOnly(approvedColumnSns);
+      const success = result?.success ?? 0;
+      const fail = result?.fail ?? 0;
+
+      toast({
+        title: '批量生成完成',
+        description: `成功 ${success} 个，失败 ${fail} 个`,
+      });
+
+      setPostApproveDialogOpen(false);
+      setApprovedColumnSns([]);
+    } catch (error) {
+      console.error('批量生成失败:', error);
+      const backendMsg = error?.response?.data?.message;
+      const errorMessage = backendMsg || (error instanceof Error ? error.message : '无法批量生成报告');
+      toast({
+        title: '批量生成失败',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingAfterApprove(false);
+    }
+  }, [approvedColumnSns, toast]);
+
+  const handleGenerateAndDownloadAfterApprove = useCallback(async () => {
+    if (approvedColumnSns.length === 0) return;
+    setGeneratingAfterApprove(true);
+    try {
+      const response = await reportApi.generateBatchReports(approvedColumnSns);
+
+      const blob = new Blob([response.data], { type: 'application/zip' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Reports_AfterApprove_${new Date().getTime()}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: '批量生成完成',
+        description: `已开始下载 ${approvedColumnSns.length} 个报告的压缩包`,
+      });
+
+      setPostApproveDialogOpen(false);
+      setApprovedColumnSns([]);
+    } catch (error) {
+      console.error('批量生成并下载失败:', error);
+      const backendMsg = error?.response?.data?.message;
+      const errorMessage = backendMsg || (error instanceof Error ? error.message : '无法批量生成并下载报告');
+      toast({
+        title: '批量生成失败',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingAfterApprove(false);
+    }
+  }, [approvedColumnSns, toast]);
 
   // 预览层析柱详情
   const handlePreview = useCallback(
-    (columnId) => {
+    async (columnSn) => {
       try {
-        // TODO: 替换为实际的数据源调用
-        const column = pendingColumns.find((c) => c.id === columnId);
+        let column = pendingColumns.find((c) => c.columnSn === columnSn);
+        if (!column) return;
+
+        try {
+          const standard = await fetchAndCacheStandard(columnSn);
+          if (standard) applyStandardToColumns(columnSn, standard);
+          column = pendingColumns.find((c) => c.columnSn === columnSn) || column;
+        } catch (e) {
+          // ignore: preview仍然可以打开，只是标准显示为“-”
+        }
+
         if (column) {
           setViewingColumn(column);
           setShowDetailModal(true);
@@ -357,17 +386,8 @@ export default function BatchAuditPage(props) {
         });
       }
     },
-    [pendingColumns, toast]
+    [applyStandardToColumns, fetchAndCacheStandard, pendingColumns, toast]
   );
-
-  // 展开/收起行
-  const handleToggleExpand = columnId => {
-    if (expandedRows.includes(columnId)) {
-      setExpandedRows(expandedRows.filter(id => id !== columnId));
-    } else {
-      setExpandedRows([...expandedRows, columnId]);
-    }
-  };
 
   // 获取结论标签
   const getConclusionBadge = useCallback(
@@ -397,20 +417,19 @@ export default function BatchAuditPage(props) {
 
   // 分页组件
   const renderPagination = useMemo(() => {
-    if (pagination.totalPages <= 1) return null;
-    const pageNumbers = generatePageNumbers(pageNum, pagination.totalPages);
+    if (totalPages <= 1) return null;
+    const pageNumbers = generatePageNumbers(pageNum, totalPages);
 
     return (
       <div className="flex items-center justify-between px-2">
         <div className="text-sm text-gray-500">
-          显示第 {pagination.startIndex + 1} - {Math.min(pagination.endIndex, filteredColumns.length)} 条，共{' '}
-          {filteredColumns.length} 条记录
+          共{total} 条记录，第{pageNum}/{totalPages}页
         </div>
         <Pagination>
           <PaginationContent>
             <PaginationItem>
               <PaginationPrevious
-                onClick={() => setPageNum((prev) => Math.max(prev - 1, 1))}
+                onClick={() => pageNum > 1 && fetchPendingColumns(pageNum - 1)}
                 className={pageNum === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
               />
             </PaginationItem>
@@ -426,7 +445,7 @@ export default function BatchAuditPage(props) {
               return (
                 <PaginationItem key={page}>
                   <PaginationLink
-                    onClick={() => setPageNum(page)}
+                    onClick={() => fetchPendingColumns(page)}
                     isActive={pageNum === page}
                     className="cursor-pointer"
                   >
@@ -438,9 +457,9 @@ export default function BatchAuditPage(props) {
 
             <PaginationItem>
               <PaginationNext
-                onClick={() => setPageNum((prev) => Math.min(prev + 1, pagination.totalPages))}
+                onClick={() => pageNum < totalPages && fetchPendingColumns(pageNum + 1)}
                 className={
-                  pageNum === pagination.totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'
+                  pageNum === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'
                 }
               />
             </PaginationItem>
@@ -448,7 +467,7 @@ export default function BatchAuditPage(props) {
         </Pagination>
       </div>
     );
-  }, [pageNum, pagination, filteredColumns.length, setPageNum]);
+  }, [fetchPendingColumns, pageNum, total, totalPages]);
 
   // 计算统计数据
   const qualifiedCount = useMemo(
@@ -458,7 +477,7 @@ export default function BatchAuditPage(props) {
 
   // 组件挂载时获取数据
   useEffect(() => {
-    fetchPendingColumns();
+    fetchPendingColumns(1);
   }, [fetchPendingColumns]);
 
   return (
@@ -557,9 +576,14 @@ export default function BatchAuditPage(props) {
                 columns={currentColumns}
                 selectedColumns={selection.selectedItems}
                 expandedRows={expand.expandedItems}
-                onSelectColumn={selection.toggleSelection}
-                onSelectAll={(checked) => selection.toggleSelectAll(currentColumns, checked)}
-                onToggleExpand={expand.toggleExpand}
+                onSelectColumn={(id) => selection.toggleSelection(id)}
+                onSelectAll={(checked) =>
+                  selection.toggleSelectAll(
+                    currentColumns.map((c) => ({ id: c.columnSn })),
+                    checked
+                  )
+                }
+                onToggleExpand={handleToggleExpandWithStandard}
                 onPreview={handlePreview}
                 getConclusionBadge={getConclusionBadge}
               />
@@ -605,6 +629,51 @@ export default function BatchAuditPage(props) {
           signing={signing}
         />
       )}
+
+      <Dialog
+        open={postApproveDialogOpen}
+        onOpenChange={(open) => {
+          if (generatingAfterApprove) return;
+          setPostApproveDialogOpen(open);
+          if (!open) setApprovedColumnSns([]);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>审核已完成</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-gray-600">
+            已审核通过 {approvedColumnSns.length} 个层析柱，是否立即批量生成报告？
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            {/* <Button
+              variant="outline"
+              onClick={() => {
+                if (generatingAfterApprove) return;
+                setPostApproveDialogOpen(false);
+                setApprovedColumnSns([]);
+              }}
+              disabled={generatingAfterApprove}
+            >
+              暂不生成
+            </Button> */}
+            <Button
+              variant="outline"
+              onClick={handleGenerateOnlyAfterApprove}
+              disabled={generatingAfterApprove}
+            >
+              仅生成
+            </Button>
+            <Button
+              onClick={handleGenerateAndDownloadAfterApprove}
+              disabled={generatingAfterApprove}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              生成并下载
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

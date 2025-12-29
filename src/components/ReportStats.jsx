@@ -28,30 +28,6 @@ export function ReportStats({
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">合格报告</p>
-              <p className="text-2xl font-bold text-green-600">{qualifiedCount}</p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-green-400" />
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">不合格报告</p>
-              <p className="text-2xl font-bold text-red-600">{unqualifiedCount}</p>
-            </div>
-            <AlertTriangle className="w-8 h-8 text-red-400" />
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
               <p className="text-sm text-gray-500">今日新增</p>
               <p className="text-2xl font-bold text-purple-600">{todayReports}</p>
             </div>

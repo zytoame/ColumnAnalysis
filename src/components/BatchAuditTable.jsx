@@ -25,7 +25,7 @@ export function BatchAuditTable({
               type="checkbox"
               checked={
                 columns.length > 0 &&
-                columns.every((column) => selectedColumns.includes(column.id))
+                columns.every((column) => selectedColumns.includes(column.columnSn))
               }
               onChange={(e) => onSelectAll(e.target.checked)}
               className="rounded border-gray-300"
@@ -43,36 +43,37 @@ export function BatchAuditTable({
       </TableHeader>
       <TableBody>
         {columns.map((column) => (
-          <React.Fragment key={column.id}>
+          <React.Fragment key={column.columnSn}>
             <TableRow className="hover:bg-gray-50">
               <TableCell>
                 <input
                   type="checkbox"
-                  checked={selectedColumns.includes(column.id)}
-                  onChange={() => onSelectColumn(column.id)}
+                  checked={selectedColumns.includes(column.columnSn)}
+                  onChange={() => onSelectColumn(column.columnSn)}
                   className="rounded border-gray-300"
                 />
               </TableCell>
               <TableCell className="font-medium">{column.columnSn}</TableCell>
-              <TableCell>{column.workOrder}</TableCell>
-              <TableCell>{column.orderNumber}</TableCell>
-              <TableCell>{column.instrumentSerial}</TableCell>
+              <TableCell>{column.sapWorkOrderNo}</TableCell>
+              <TableCell>{column.sapOrderNo}</TableCell>
+              <TableCell>{column.deviceSn}</TableCell>
               <TableCell>
-                <Badge variant={column.testType === '糖化模式' ? 'default' : 'secondary'}>
-                  {column.testType}
+                <Badge variant={column.mode === '糖化模式' ? 'default' : 'secondary'}>
+                  {column.mode}
                 </Badge>
               </TableCell>
-              <TableCell>{column.submitTime}</TableCell>
+              <TableCell>{column.preprocessColumnSn || '-'}</TableCell>
+              <TableCell>{column.inspectionDate || '-'}</TableCell>
               <TableCell>
                 <div className="flex space-x-1">
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => onToggleExpand(column.id)}
+                    onClick={() => onToggleExpand(column.columnSn)}
                     className="h-8 w-8 p-0"
                     title="展开详情"
                   >
-                    {expandedRows.includes(column.id) ? (
+                    {expandedRows.includes(column.columnSn) ? (
                       <ChevronUp className="w-4 h-4" />
                     ) : (
                       <ChevronDown className="w-4 h-4" />
@@ -81,7 +82,7 @@ export function BatchAuditTable({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => onPreview(column.id)}
+                    onClick={() => onPreview(column.columnSn)}
                     className="h-8 w-8 p-0"
                     title="预览详情"
                   >
@@ -92,7 +93,7 @@ export function BatchAuditTable({
             </TableRow>
 
             {/* 展开的检测数据行 */}
-            {expandedRows.includes(column.id) && (
+            {expandedRows.includes(column.columnSn) && (
               <TableRow>
                 <TableCell colSpan={8} className="bg-gray-50 p-4">
                   <DetectionDataCard
