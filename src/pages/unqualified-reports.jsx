@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge, useToast, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui';
-import { User, ArrowLeft, AlertTriangle, Clock, Loader2, FileCheck } from 'lucide-react';
+import { Button, Card, CardContent, CardHeader, CardTitle, useToast, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui';
+import { ArrowLeft, AlertTriangle, Clock, Loader2, FileCheck } from 'lucide-react';
 import { EditModal } from '@/components/EditModal';
 import { DetailModal } from '@/components/DetailModal';
 import { UnqualifiedReportTable } from '@/components/UnqualifiedReportTable';
 import { UnqualifiedReportStats } from '@/components/UnqualifiedReportStats';
 import { UnqualifiedSearchFilters } from '@/components/UnqualifiedSearchFilters';
+import { AntdTag } from '@/components/AntdTag.jsx';
 import { useSelection } from '@/hooks/useSelection';
-import { useExpand } from '@/hooks/useExpand';
 import { generatePageNumbers } from '@/utils/pagination';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES, PAGINATION, DATE_RANGES, TEST_TYPES, CONCLUSION_STATUS } from '@/constants';
@@ -43,7 +43,6 @@ export default function UnqualifiedReportsPage(props) {
     dateRange: DATE_RANGES.ALL,
   });
   const selection = useSelection();
-  const expand = useExpand();
 
   // 当前用户信息
   const currentUser = useMemo(
@@ -159,27 +158,31 @@ export default function UnqualifiedReportsPage(props) {
     return standard;
   }, [standardCache]);
 
-  const handleToggleExpandWithStandard = useCallback(async (columnSn) => {
-    const isExpanded = expand.expandedItems.includes(columnSn);
-    if (isExpanded) {
-      expand.toggleExpand(columnSn);
-      return;
-    }
+  const withStandardApplied = useCallback((column, standard) => {
+    if (!column) return column;
 
-    try {
-      const standard = await fetchAndCacheStandard(columnSn);
-      if (standard) applyStandardToReports(columnSn, standard);
-    } catch (error) {
-      console.error('获取层析柱标准失败:', error);
-      toast({
-        title: '获取标准失败',
-        description: '无法加载该层析柱的标准值，将以“-”显示',
-        variant: 'destructive',
-      });
-    } finally {
-      expand.toggleExpand(columnSn);
-    }
-  }, [applyStandardToReports, expand, fetchAndCacheStandard, toast]);
+    const standardText = {
+      setTemperature: formatRange(standard?.minTemperature, standard?.maxTemperature),
+      pressure: formatRange(standard?.minPressure, standard?.maxPressure),
+      peakTime: formatRange(standard?.minPeakTime, standard?.maxPeakTime),
+      repeatabilityTest: standard?.maxCv != null ? `<= ${standard.maxCv}%` : '-',
+    };
+
+    const d = column?.detectionData || {};
+    return {
+      ...column,
+      detectionData: {
+        ...d,
+        setTemperature: { ...(d.setTemperature || {}), standard: standardText.setTemperature },
+        pressure: { ...(d.pressure || {}), standard: standardText.pressure },
+        peakTime: { ...(d.peakTime || {}), standard: standardText.peakTime },
+        repeatabilityTest: {
+          ...(d.repeatabilityTest || {}),
+          standard: standardText.repeatabilityTest,
+        },
+      },
+    };
+  }, [formatRange]);
 
   const fetchUnqualifiedColumns = useCallback(async (page = 1) => {
     setLoading(true);
@@ -247,9 +250,8 @@ export default function UnqualifiedReportsPage(props) {
       dateRange: DATE_RANGES.ALL,
     });
     selection.clearSelection();
-    expand.collapseAll();
     fetchUnqualifiedColumns(1);
-  }, [expand, fetchUnqualifiedColumns, selection]);
+  }, [fetchUnqualifiedColumns, selection]);
 
   // 保存编辑后的层析柱数据
   const handleSaveEdit = useCallback(
@@ -413,10 +415,7 @@ export default function UnqualifiedReportsPage(props) {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-              <User className="w-3 h-3 mr-1" />
-              {getUserTypeLabel(currentUser.type)}
-            </Badge>
+            <AntdTag label={getUserTypeLabel(currentUser.type)} color="sky" showDot={false} />
           </div>
         </div>
       </div>
@@ -482,7 +481,6 @@ export default function UnqualifiedReportsPage(props) {
               <UnqualifiedReportTable
                 reports={currentColumns}
                 selectedReports={selection.selectedItems}
-                expandedRows={expand.expandedItems}
                 onSelectReport={(id) => selection.toggleSelection(id)}
                 onSelectAll={(checked) =>
                   selection.toggleSelectAll(
@@ -490,10 +488,28 @@ export default function UnqualifiedReportsPage(props) {
                     checked
                   )
                 }
-                onToggleExpand={handleToggleExpandWithStandard}
-                onEdit={(columnSn) => {
+                onEdit={async (columnSn) => {
                   const column = unqualifiedColumns.find((c) => c.columnSn === columnSn);
-                  if (column) {
+                  if (!column) return;
+
+                  try {
+                    const standard = await fetchAndCacheStandard(columnSn);
+                    if (standard) {
+                      applyStandardToReports(columnSn, standard);
+                    }
+                    const next = standard ? withStandardApplied(column, standard) : column;
+                    setEditingColumn({
+                      ...next,
+                      detectionData: JSON.parse(JSON.stringify(next.detectionData)),
+                    });
+                    setShowEditModal(true);
+                  } catch (error) {
+                    console.error('获取层析柱标准失败:', error);
+                    toast({
+                      title: '获取标准失败',
+                      description: '无法加载该层析柱的标准值，将以“-”显示',
+                      variant: 'destructive',
+                    });
                     setEditingColumn({
                       ...column,
                       detectionData: JSON.parse(JSON.stringify(column.detectionData)),

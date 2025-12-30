@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, Badge, useToast } from '@/components/ui';
+import { Card, CardContent, CardHeader, CardTitle, useToast } from '@/components/ui';
 import { FileText, Search, CheckCircle, AlertTriangle, Shield, ArrowRight, Clock, Database, PenTool } from 'lucide-react';
 import { WorkOrderStats } from '@/components/WorkOrderStats';
+import { AntdTag } from '@/components/AntdTag.jsx';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES } from '@/constants';
 import reportApi from '@/api/report';
@@ -190,10 +191,12 @@ export default function MainPage(props) {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              <Shield className="w-3 h-3 mr-1" />
-              {getUserTypeLabel(currentUser.type)}
-            </Badge>
+            <AntdTag
+              label={getUserTypeLabel(currentUser.type)}
+              color="sky"
+              showDot={false}
+              prefix={<Shield className="w-3 h-3 mr-1" />}
+            />
           </div>
         </div>
       </div>

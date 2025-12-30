@@ -1,7 +1,7 @@
 // @ts-ignore;
 import React, { useState, useEffect } from 'react';
 // @ts-ignore;
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 // @ts-ignore;
 import { BarChart3, CheckCircle, Clock, TrendingUp, Package, AlertCircle } from 'lucide-react';
 

@@ -1,9 +1,10 @@
 // @ts-ignore;
 import React, { useState, useEffect, useRef } from 'react';
 // @ts-ignore;
-import { Button, Input, Card, CardContent, CardHeader, CardTitle, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@/components/ui';
+import { Button, Input, Card, CardContent, CardHeader, CardTitle, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@/components/ui';
 // @ts-ignore;
-import { X, Save, Edit2, Thermometer, Gauge, Timer, Activity, AlertTriangle, Calculator, RefreshCw } from 'lucide-react';
+import { X, Save, Edit2, Thermometer, Gauge, Timer, Activity, AlertTriangle, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
+import { AntdTag } from '@/components/AntdTag.jsx';
 import columnApi from '@/api/column';
 
 export function EditModal({
@@ -18,12 +19,10 @@ export function EditModal({
   const [activeTab, setActiveTab] = useState('detection'); // 默认显示检测数据标签页
 
   const baselineRef = useRef(null);
-  const isInitializingRef = useRef(false);
 
   // 如果报告数据变化，更新编辑状态
   useEffect(() => {
     if (report) {
-      isInitializingRef.current = true;
       setEditedReport(() => {
         const next = {
           ...report,
@@ -33,17 +32,8 @@ export function EditModal({
         baselineRef.current = JSON.parse(JSON.stringify(next));
         return next;
       });
-      // 让首次渲染/回填不触发变更记录
-      queueMicrotask(() => {
-        isInitializingRef.current = false;
-      });
     }
   }, [report]);
-
-  const pushChangeLog = (fieldPath, oldValue, newValue, source = 'user') => {
-    // 仅在保存时生成最终 changeLogs，避免记录中间过程来回变动
-    return;
-  };
 
   const normalizeFieldPath = (p) => {
     if (!p) return '';
@@ -218,7 +208,6 @@ export function EditModal({
         }
 
         if (cancelled) return;
-        isInitializingRef.current = true;
         setEditedReport((prev) => {
           const detectionData = prev?.detectionData || {};
           const repeatabilityTest = detectionData?.repeatabilityTest || {};
@@ -234,9 +223,6 @@ export function EditModal({
           };
           baselineRef.current = JSON.parse(JSON.stringify(next));
           return next;
-        });
-        queueMicrotask(() => {
-          isInitializingRef.current = false;
         });
       } catch (e) {
         if (cancelled) return;
@@ -267,8 +253,6 @@ export function EditModal({
     setEditedReport((prev) => {
       const prevCv = prev?.detectionData?.repeatabilityTest?.result;
       const prevConclusion = prev?.detectionData?.repeatabilityTest?.conclusion;
-      pushChangeLog('detectionData.repeatabilityTest.result', prevCv, nextCv, 'auto');
-      pushChangeLog('detectionData.repeatabilityTest.conclusion', prevConclusion, conclusion, 'auto');
       return {
         ...prev,
         detectionData: {
@@ -293,7 +277,6 @@ export function EditModal({
       if (data.conclusion !== nextConclusion) {
         setEditedReport((prev) => {
           const prevConclusion = prev?.detectionData?.[key]?.conclusion;
-          pushChangeLog(`detectionData.${key}.conclusion`, prevConclusion, nextConclusion, 'auto');
           return {
             ...prev,
             detectionData: {
@@ -309,17 +292,10 @@ export function EditModal({
     });
   }, [computeConclusionByStandard, editedReport?.detectionData, isOpen]);
 
-  // 更新基本信息 - 禁用修改
-  const updateBasicInfo = (field, value) => {
-    // 基本信息不允许修改，直接返回
-    return;
-  };
-
   // 更新检测数据
   const updateDetectionData = (key, field, value) => {
     setEditedReport((prev) => {
       const prevVal = prev?.detectionData?.[key]?.[field];
-      pushChangeLog(`detectionData.${key}.${field}`, prevVal, value, 'user');
       return {
         ...prev,
         detectionData: {
@@ -347,20 +323,8 @@ export function EditModal({
     newCategoryValues[index] = value;
     currentValues[category] = newCategoryValues;
 
-    pushChangeLog(`detectionData.repeatabilityTest.rawValues.${category}[${index}]`, prevValue, value, 'user');
-
-    // 重新计算CV值
-    const cvValue = calculateCV(currentValues);
-    const conclusion = cvValue <= parseFloat(currentData.standard?.replace(/[^0-9.]/g, '') || 1.5) ? 'pass' : 'fail';
-    // rawValues 变更已记录，这里避免重复以“user”来源记录；CV/结论记录为 auto
+    // 只更新rawValues，不重新计算CV和结论
     setEditedReport((prev) => {
-      const prevCv = prev?.detectionData?.repeatabilityTest?.result;
-      const nextCv = `${cvValue.toFixed(2)}%`;
-      const prevConclusion = prev?.detectionData?.repeatabilityTest?.conclusion;
-
-      pushChangeLog('detectionData.repeatabilityTest.result', prevCv, nextCv, 'auto');
-      pushChangeLog('detectionData.repeatabilityTest.conclusion', prevConclusion, conclusion, 'auto');
-
       return {
         ...prev,
         detectionData: {
@@ -368,8 +332,6 @@ export function EditModal({
           repeatabilityTest: {
             ...(prev.detectionData?.repeatabilityTest || {}),
             rawValues: currentValues,
-            result: nextCv,
-            conclusion,
           },
         },
       };
@@ -422,6 +384,16 @@ export function EditModal({
     };
     const IconComponent = iconMap[iconName] || AlertTriangle;
     return <IconComponent className="w-5 h-5" />;
+  };
+
+  const getConclusionUI = (conclusion) => {
+    const isPass = conclusion === 'pass';
+    return {
+      label: isPass ? '合格' : '不合格',
+      Icon: isPass ? CheckCircle2 : XCircle,
+      color: isPass ? 'green' : 'red',
+      iconClassName: isPass ? 'w-3 h-3 mr-1 text-green-600' : 'w-3 h-3 mr-1 text-red-600',
+    };
   };
 
   // 保存编辑
@@ -504,88 +476,13 @@ export function EditModal({
         <div className="space-y-6">
           {/* 标签页导航 */}
           <div className="flex space-x-1 border-b">
-            <button className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'basic' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`} onClick={() => setActiveTab('basic')}>
-              基本信息
-            </button>
             <button className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'detection' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`} onClick={() => setActiveTab('detection')}>
               检测数据
             </button>
-            <button className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'conclusion' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`} onClick={() => setActiveTab('conclusion')}>
-              结论与备注
-            </button>
           </div>
-
-          {/* 基本信息标签页 - 禁用修改 */}
-          {activeTab === 'basic' && <div className="space-y-4">
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <span className="text-sm font-medium text-amber-800">基本信息不可修改</span>
-                </div>
-                <p className="text-sm text-gray-600">层析柱的基本信息（工单号、序列号、检测模式等）为系统自动生成，不允许手动修改。如需修改，请联系系统管理员。</p>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">工单号</label>
-                  <Input value={editedReport.workOrder || ''} disabled className="bg-gray-100 text-gray-500 cursor-not-allowed" placeholder="请输入工单号" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">层析柱序列号</label>
-                  <Input value={editedReport.columnSn || ''} disabled className="bg-gray-100 text-gray-500 cursor-not-allowed" placeholder="请输入层析柱序列号" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">订单号</label>
-                  <Input value={editedReport.orderNumber || ''} disabled className="bg-gray-100 text-gray-500 cursor-not-allowed" placeholder="请输入订单号" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">仪器序列号</label>
-                  <Input value={editedReport.instrumentSerial || ''} disabled className="bg-gray-100 text-gray-500 cursor-not-allowed" placeholder="请输入仪器序列号" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">检测模式</label>
-                  <Select value={editedReport.testType || ''} disabled>
-                    <SelectTrigger className="bg-gray-100 text-gray-500 cursor-not-allowed">
-                      <SelectValue placeholder="选择检测模式" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="糖化模式">糖化模式</SelectItem>
-                      <SelectItem value="地贫模式">地贫模式</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">报告类型</label>
-                  <Select value={editedReport.reportType || ''} disabled>
-                    <SelectTrigger className="bg-gray-100 text-gray-500 cursor-not-allowed">
-                      <SelectValue placeholder="选择报告类型" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="glycation">糖化模式报告</SelectItem>
-                      <SelectItem value="thalassemia">地贫模式报告</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">负责人</label>
-                  <Input value={editedReport.operator || ''} disabled className="bg-gray-100 text-gray-500 cursor-not-allowed" placeholder="请输入负责人" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">报告日期</label>
-                  <Input type="date" value={editedReport.testDate || ''} disabled className="bg-gray-100 text-gray-500 cursor-not-allowed" />
-                </div>
-              </div>
-            </div>}
 
           {/* 检测数据标签页 - 允许修改 */}
           {activeTab === 'detection' && <div className="space-y-4">
-              <div className="flex justify-end mb-4">
-                <Button variant="outline" onClick={recalculateAll} className="flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4" />
-                  重新计算CV值
-                </Button>
-              </div>
-              
               {Object.entries(getFilteredDetectionData()).map(([key, data]) => <Card key={key}>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
@@ -658,52 +555,23 @@ export function EditModal({
                       </Select>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={data.conclusion === 'pass' ? 'default' : 'destructive'}>
-                        {data.conclusion === 'pass' ? '合格' : '不合格'}
-                      </Badge>
+                      {(() => {
+                        const ui = getConclusionUI(data.conclusion);
+                        return (
+                          <AntdTag
+                            label={ui.label}
+                            color={ui.color}
+                            showDot={false}
+                            prefix={<ui.Icon className={ui.iconClassName} />}
+                          />
+                        );
+                      })()}
                       <span className="text-sm text-gray-500">
                         标准: {data.standard} | 结果: {data.result}
                       </span>
                     </div>
                   </CardContent>
                 </Card>)}
-            </div>}
-
-          {/* 结论与备注标签页 - 允许修改 */}
-          {activeTab === 'conclusion' && <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">检测结果</label>
-                <Select value={editedReport.testResult || ''} onValueChange={value => updateBasicInfo('testResult', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择检测结果" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="qualified">合格</SelectItem>
-                    <SelectItem value="unqualified">不合格</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">不合格原因</label>
-                <Input value={editedReport.unqualifiedReasons?.join(', ') || ''} onChange={e => updateBasicInfo('unqualifiedReasons', e.target.value.split(',').map(r => r.trim()))} placeholder="请输入不合格原因，多个原因用逗号分隔" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">审核状态</label>
-                <Select value={editedReport.auditStatus || ''} onValueChange={value => updateBasicInfo('auditStatus', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择审核状态" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">待审核</SelectItem>
-                    <SelectItem value="approved">已通过</SelectItem>
-                    <SelectItem value="rejected">已拒绝</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
-                <textarea className="w-full p-2 border border-gray-300 rounded-md resize-vertical" rows={4} value={editedReport.remarks || ''} onChange={e => updateBasicInfo('remarks', e.target.value)} placeholder="请输入备注信息" />
-              </div>
             </div>}
 
           {/* 操作按钮 */}

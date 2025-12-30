@@ -6,7 +6,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Badge,
   Table,
   TableBody,
   TableCell,
@@ -15,6 +14,7 @@ import {
   TableRow,
   Button,
 } from '@/components/ui';
+import { ConclusionTag, FinalConclusionTag } from '@/components/AntdTag.jsx';
 // @ts-ignore;
 import {
   Activity,
@@ -41,27 +41,6 @@ export const DetectionDataCard = ({
   showHeader = true,
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-
-  const getConclusionBadge = (conclusion) => {
-    return conclusion === 'pass' ? (
-      <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-        合格
-      </Badge>
-    ) : (
-      <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">不合格</Badge>
-    );
-  };
-
-  const getFinalConclusionBadge = (conclusion) => {
-    // 默认视为不合格，保证组件在缺少字段时也有明确展示
-    return conclusion === 'qualified' ? (
-      <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-        最终合格
-      </Badge>
-    ) : (
-      <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">最终不合格</Badge>
-    );
-  };
 
   // 将字符串 icon 名称映射到具体图标组件，兼容不同数据格式
   const resolveIcon = (iconValue) => {
@@ -105,7 +84,7 @@ export const DetectionDataCard = ({
               检测数据详情
             </CardTitle>
             <div className="flex items-center gap-2">
-              {getFinalConclusionBadge(finalConclusion)}
+              <FinalConclusionTag value={finalConclusion} />
               <Button
                 variant="outline"
                 size="sm"
@@ -161,7 +140,7 @@ export const DetectionDataCard = ({
                           {data.result}
                         </span>
                       </TableCell>
-                      <TableCell>{getConclusionBadge(data.conclusion)}</TableCell>
+                      <TableCell><ConclusionTag value={data.conclusion} /></TableCell>
                     </TableRow>
                   );
                 })}

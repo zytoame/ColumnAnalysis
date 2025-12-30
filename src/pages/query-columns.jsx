@@ -5,7 +5,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Badge,
   useToast,
   Pagination,
   PaginationContent,
@@ -21,8 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui';
-import { ArrowLeft, Search, Database, User, Loader2 } from 'lucide-react';
+import { ArrowLeft, Search, Database, Loader2 } from 'lucide-react';
 import { BaseSearchFilters } from '@/components/BaseSearchFilters.jsx';
+import { AntdTag, ModeTag, StatusTag } from '@/components/AntdTag.jsx';
 import { generatePageNumbers } from '@/utils/pagination';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES, TEST_TYPES, PAGINATION } from '@/constants';
@@ -39,7 +39,16 @@ export default function QueryColumnsPage(props) {
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
 
-  const [searchParams, setSearchParams] = useState({
+  const [draftSearchParams, setDraftSearchParams] = useState({
+    sapWorkOrderNo: '',
+    columnSn: '',
+    sapOrderNo: '',
+    deviceSn: '',
+    mode: TEST_TYPES.ALL,
+    status: 'all',
+  });
+
+  const [appliedSearchParams, setAppliedSearchParams] = useState({
     sapWorkOrderNo: '',
     columnSn: '',
     sapOrderNo: '',
@@ -111,10 +120,9 @@ export default function QueryColumnsPage(props) {
   );
 
   const fetchColumns = useCallback(
-    async (page = 1, currentParams) => {
+    async (page = 1, params) => {
       setLoading(true);
       try {
-        const params = currentParams !== undefined ? currentParams : searchParams;
         const req = {
           ...params,
           status: params.status === 'all' ? '' : params.status,
@@ -143,13 +151,13 @@ export default function QueryColumnsPage(props) {
         setLoading(false);
       }
     },
-    [searchParams, toast],
+    [toast],
   );
 
   const handleSearch = useCallback(async () => {
-    setLoading(true);
     try {
-      const response = await fetchColumns(1, searchParams);
+      setAppliedSearchParams(draftSearchParams);
+      const response = await fetchColumns(1, draftSearchParams);
       toast({
         title: '查询完成',
         description: `找到 ${response.total || 0} 条层析柱`,
@@ -161,10 +169,8 @@ export default function QueryColumnsPage(props) {
         description: '无法执行搜索操作',
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
-  }, [fetchColumns, searchParams, toast]);
+  }, [draftSearchParams, fetchColumns, toast]);
 
   const handleReset = useCallback(() => {
     const resetValues = {
@@ -175,7 +181,8 @@ export default function QueryColumnsPage(props) {
       mode: TEST_TYPES.ALL,
       status: 'all',
     };
-    setSearchParams(resetValues);
+    setDraftSearchParams(resetValues);
+    setAppliedSearchParams(resetValues);
     fetchColumns(1, resetValues);
   }, [fetchColumns]);
 
@@ -189,9 +196,9 @@ export default function QueryColumnsPage(props) {
   const handlePageChange = useCallback(
     (newPage) => {
       setPageNum(newPage);
-      fetchColumns(newPage, searchParams);
+      fetchColumns(newPage, appliedSearchParams);
     },
-    [fetchColumns, searchParams],
+    [appliedSearchParams, fetchColumns],
   );
 
   const renderPagination = useMemo(() => {
@@ -245,8 +252,8 @@ export default function QueryColumnsPage(props) {
   }, [handlePageChange, pageNum, total, totalPages]);
 
   useEffect(() => {
-    fetchColumns(1, searchParams);
-  }, [fetchColumns]);
+    fetchColumns(1, appliedSearchParams);
+  }, []);
 
   return (
     <div style={style} className="min-h-screen bg-gray-50">
@@ -269,10 +276,7 @@ export default function QueryColumnsPage(props) {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-              <User className="w-3 h-3 mr-1" />
-              {getUserTypeLabel(currentUser.type)}
-            </Badge>
+            <AntdTag label={getUserTypeLabel(currentUser.type)} color="sky" showDot={false} />
           </div>
         </div>
       </div>
@@ -281,8 +285,8 @@ export default function QueryColumnsPage(props) {
         <BaseSearchFilters
           title="查询条件"
           fields={fields}
-          searchParams={searchParams}
-          setSearchParams={setSearchParams}
+          searchParams={draftSearchParams}
+          setSearchParams={setDraftSearchParams}
           onSearch={handleSearch}
           onReset={handleReset}
           loading={loading}
@@ -306,24 +310,24 @@ export default function QueryColumnsPage(props) {
               </div>
             ) : (
               <div className="w-full overflow-auto">
-                <Table>
+                <Table className="table-fixed min-w-[1400px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>层析柱序列号</TableHead>
-                      <TableHead>工单号</TableHead>
-                      <TableHead>订单号</TableHead>
-                      <TableHead>仪器序列号</TableHead>
-                      <TableHead>检测模式</TableHead>
-                      <TableHead>状态</TableHead>
-                      <TableHead>成品序列号</TableHead>
-                      <TableHead>检测日期</TableHead>
-                      <TableHead>审核人</TableHead>
-                      <TableHead>审核时间</TableHead>
-                      <TableHead>设置温度</TableHead>
-                      <TableHead>系统压力</TableHead>
-                      <TableHead>出峰时间</TableHead>
-                      <TableHead>CV值</TableHead>
-                      <TableHead>建议</TableHead>
+                      <TableHead className="w-40 whitespace-nowrap">层析柱序列号</TableHead>
+                      <TableHead className="w-32 whitespace-nowrap">工单号</TableHead>
+                      <TableHead className="w-32 whitespace-nowrap">订单号</TableHead>
+                      <TableHead className="w-36 whitespace-nowrap">仪器序列号</TableHead>
+                      <TableHead className="w-24 whitespace-nowrap">检测模式</TableHead>
+                      <TableHead className="w-24 whitespace-nowrap">状态</TableHead>
+                      <TableHead className="w-32 whitespace-nowrap">预处理柱编号</TableHead>
+                      <TableHead className="w-28 whitespace-nowrap">检测日期</TableHead>
+                      <TableHead className="w-20 whitespace-nowrap">审核人</TableHead>
+                      <TableHead className="w-36 whitespace-nowrap">审核时间</TableHead>
+                      <TableHead className="w-24 whitespace-nowrap text-right">设置温度</TableHead>
+                      <TableHead className="w-24 whitespace-nowrap text-right">系统压力</TableHead>
+                      <TableHead className="w-24 whitespace-nowrap text-right">出峰时间</TableHead>
+                      <TableHead className="w-20 whitespace-nowrap text-right">CV值</TableHead>
+                      <TableHead className="w-[280px] whitespace-nowrap">建议</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -336,27 +340,25 @@ export default function QueryColumnsPage(props) {
                     ) : (
                       columns.map((c) => (
                         <TableRow key={c.columnSn} className="hover:bg-gray-50">
-                          <TableCell className="font-medium">{c.columnSn}</TableCell>
-                          <TableCell>{c.sapWorkOrderNo || '-'}</TableCell>
-                          <TableCell>{c.sapOrderNo || '-'}</TableCell>
-                          <TableCell>{c.deviceSn || '-'}</TableCell>
+                          <TableCell className="font-medium whitespace-nowrap truncate">{c.columnSn}</TableCell>
+                          <TableCell className="whitespace-nowrap truncate">{c.sapWorkOrderNo || '-'}</TableCell>
+                          <TableCell className="whitespace-nowrap truncate">{c.sapOrderNo || '-'}</TableCell>
+                          <TableCell className="whitespace-nowrap truncate">{c.deviceSn || '-'}</TableCell>
                           <TableCell>
-                            <Badge variant={c.mode === '糖化模式' ? 'default' : 'secondary'}>
-                              {c.mode || '-'}
-                            </Badge>
+                            <ModeTag mode={c.mode} />
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline">{c.status || '-'}</Badge>
+                            <StatusTag status={c.status} />
                           </TableCell>
-                          <TableCell>{c.preprocessColumnSn || '-'}</TableCell>
-                          <TableCell>{c.inspectionDate || '-'}</TableCell>
-                          <TableCell>{c.auditor || '-'}</TableCell>
-                          <TableCell>{c.auditTime || '-'}</TableCell>
-                          <TableCell>{c.setTemperature ?? '-'}</TableCell>
-                          <TableCell>{c.pressure ?? '-'}</TableCell>
-                          <TableCell>{c.peakTime ?? '-'}</TableCell>
-                          <TableCell>{c.cvValue ?? '-'}</TableCell>
-                          <TableCell className="max-w-[240px] truncate" title={c.suggestion || ''}>
+                          <TableCell className="whitespace-nowrap truncate">{c.preprocessColumnSn || '-'}</TableCell>
+                          <TableCell className="whitespace-nowrap">{c.inspectionDate || '-'}</TableCell>
+                          <TableCell className="whitespace-nowrap truncate">{c.auditor || '-'}</TableCell>
+                          <TableCell className="whitespace-nowrap">{c.auditTime || '-'}</TableCell>
+                          <TableCell className="whitespace-nowrap text-right">{c.setTemperature ?? '-'}</TableCell>
+                          <TableCell className="whitespace-nowrap text-right">{c.pressure ?? '-'}</TableCell>
+                          <TableCell className="whitespace-nowrap text-right">{c.peakTime ?? '-'}</TableCell>
+                          <TableCell className="whitespace-nowrap text-right">{c.cvValue ?? '-'}</TableCell>
+                          <TableCell className="truncate" title={c.suggestion || ''}>
                             {c.suggestion || '-'}
                           </TableCell>
                         </TableRow>

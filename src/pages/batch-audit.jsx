@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge, useToast, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, useToast, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 import { CheckCircle, ArrowLeft, PenTool, XCircle, Loader2, FileCheck, User, Thermometer, Gauge, Timer, Activity, Package } from 'lucide-react';
 import { BatchAuditTable } from '@/components/BatchAuditTable';
 import { BatchAuditStats } from '@/components/BatchAuditStats';
 import { BatchSearchFilters } from '@/components/BatchSearchFilters';
 import { DetailModal } from '@/components/DetailModal';
 import { SignaturePad } from '@/components/SignaturePad';
+import { AntdTag, ConclusionTag } from '@/components/AntdTag.jsx';
 import { useSelection } from '@/hooks/useSelection';
 import { useExpand } from '@/hooks/useExpand';
 import { generatePageNumbers } from '@/utils/pagination';
@@ -392,16 +393,10 @@ export default function BatchAuditPage(props) {
   // 获取结论标签
   const getConclusionBadge = useCallback(
     (conclusion) => {
-      return conclusion === CONCLUSION_STATUS.QUALIFIED ? (
-        <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-          <CheckCircle className="w-3 h-3 mr-1" />
-          合格
-        </Badge>
-      ) : (
-        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-          <XCircle className="w-3 h-3 mr-1" />
-          不合格
-        </Badge>
+      return (
+        <ConclusionTag
+          value={conclusion === CONCLUSION_STATUS.QUALIFIED ? 'qualified' : 'unqualified'}
+        />
       );
     },
     []
@@ -502,10 +497,7 @@ export default function BatchAuditPage(props) {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              <User className="w-3 h-3 mr-1" />
-              {getUserTypeLabel(currentUser.type)}
-            </Badge>
+            <AntdTag label={getUserTypeLabel(currentUser.type)} color="sky" showDot={false} />
           </div>
         </div>
       </div>

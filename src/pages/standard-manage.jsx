@@ -8,7 +8,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Badge,
   Button,
   Card,
   CardContent,
@@ -34,6 +33,7 @@ import {
 } from '@/components/ui';
 import { ArrowLeft, Database, Loader2, Pencil, Plus, Search, Trash2, User } from 'lucide-react';
 import { BaseSearchFilters } from '@/components/BaseSearchFilters.jsx';
+import { AntdTag } from '@/components/AntdTag.jsx';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES } from '@/constants';
 import columnApi from '@/api/column';
@@ -383,10 +383,12 @@ export default function StandardManagePage(props) {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-              <User className="w-3 h-3 mr-1" />
-              {getUserTypeLabel(currentUser.type)}
-            </Badge>
+            <AntdTag
+              label={getUserTypeLabel(currentUser.type)}
+              color="sky"
+              showDot={false}
+              prefix={<User className="w-3 h-3 mr-1" />}
+            />
           </div>
         </div>
       </div>

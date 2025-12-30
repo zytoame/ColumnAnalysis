@@ -1,9 +1,10 @@
 // @ts-ignore;
 import React, { useState } from 'react';
 // @ts-ignore;
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, Dialog, DialogContent, DialogHeader, DialogTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui';
 // @ts-ignore;
 import { X, Eye, ChevronDown, ChevronUp, Thermometer, Gauge, Timer, Activity, Package, AlertTriangle, Clock, User, Calendar, FileText } from 'lucide-react';
+import { ConclusionTag, FinalConclusionTag, ModeTag } from '@/components/AntdTag.jsx';
 
 export function DetailModal({
   column,
@@ -35,23 +36,6 @@ export function DetailModal({
     const IconComponent = iconMap[iconName] || AlertTriangle;
     return <IconComponent className="w-5 h-5" />;
   };
-
-  // 获取状态标签
-  const getStatusBadge = status => {
-    const statusConfig = {
-      qualified: {
-        label: '合格',
-        color: 'green'
-      },
-      unqualified: { 
-        label: '不合格',
-        color: 'red'
-      }
-    };
-    const config = statusConfig[status] || statusConfig.unqualified;
-    return <Badge variant={config.color}>{config.label}</Badge>;
-  };
-
 
   if (!isOpen || !column) return null;
   return <Dialog open={isOpen} onOpenChange={onClose}>
@@ -101,7 +85,9 @@ export function DetailModal({
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">检测类型</label>
-                    <p className="font-medium">{column.mode}</p>
+                    <div className="mt-1">
+                      <ModeTag mode={column.mode} />
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">检测日期</label>
@@ -117,7 +103,9 @@ export function DetailModal({
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">最终结论</label>
-                    <div>{getStatusBadge(column.finalConclusion)}</div>
+                    <div className="mt-1">
+                      <FinalConclusionTag value={column.finalConclusion} />
+                    </div>
                   </div>
                 </div>
               </CardContent>}
@@ -150,9 +138,7 @@ export function DetailModal({
                               {key === 'appearanceInspection' && '外观检查'}
                             </h4>
                           </div>
-                          <Badge variant={data.conclusion === 'pass' ? 'default' : 'destructive'}>
-                            {data.conclusion === 'pass' ? '合格' : '不合格'}
-                          </Badge>
+                          <ConclusionTag value={data.conclusion} />
                         </div>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>

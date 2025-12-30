@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle, Badge, useToast,
+import { Button, Card, CardContent, CardHeader, CardTitle, useToast,
   Pagination, PaginationContent, PaginationEllipsis, PaginationItem,
   PaginationLink, PaginationNext, PaginationPrevious,
   Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
 import { FileText, ArrowLeft, Plus, Search, Download, Loader2, User } from 'lucide-react';
+import { AntdTag } from '@/components/AntdTag.jsx';
 import { ReportTable } from '@/components/ReportTable';
 import { ReportStats } from '@/components/ReportStats';
 import { SearchFilters } from '@/components/SearchFilters';
@@ -152,14 +153,6 @@ export default function QueryReportsPage(props) {
     fetchReports(1, resetValues);
   };
 
-  // 生成报告
-  const handleGenerateReport = useCallback(() => {
-    $w?.utils.navigateTo({
-      pageId: 'generate-report',
-      params: {},
-    });
-  }, [$w]);
-
   // 下载报告
   const handleDownload = useCallback( async (report) => {
       try {
@@ -193,44 +186,6 @@ export default function QueryReportsPage(props) {
       }
     },
   );
-
-  // 生成已审核报告（单条）
-  const handleGenerateApprovedReport = useCallback(async (report) => {
-    try {
-      const columnSn = typeof report === 'string' ? report : report?.columnSn;
-      if (!columnSn) {
-        throw new Error('缺少报告编号');
-      }
-
-      const response = await reportApi.generateReport(columnSn);
-
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.body.appendChild(document.createElement('a'));
-      link.href = url;
-      link.download = `Report_${columnSn}.pdf`;
-      link.click();
-      window.URL.revokeObjectURL(url);
-      link.remove();
-
-      toast({
-        title: '生成成功',
-        description: `报告 ${columnSn} 已开始下载`,
-      });
-
-      // 生成后刷新列表（可选，避免状态未更新）
-      fetchReports(pageNum, searchParams);
-    } catch (error) {
-      console.error('生成报告失败:', error);
-      const backendMsg = error?.response?.data?.message;
-      const errorMessage = backendMsg || (error instanceof Error ? error.message : '无法生成报告');
-      toast({
-        title: '生成失败',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    }
-  }, [fetchReports, pageNum, searchParams, toast]);
 
   // 批量下载报告
   const handleBatchDownload = useCallback(async () => {
@@ -279,50 +234,6 @@ export default function QueryReportsPage(props) {
       });
     }
   }, [selection, toast]);
-
-  // 批量生成已审核报告（ZIP）
-  const handleBatchGenerateApprovedReports = useCallback(async () => {
-    if (selection.selectedItems.length === 0) {
-      toast({
-        title: '请选择报告',
-        description: '请先选择要生成的报告',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      const columnSns = selection.selectedItems;
-      const response = await reportApi.generateBatchReports(columnSns);
-
-      const blob = new Blob([response.data], { type: 'application/zip' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Reports_Generated_${new Date().getTime()}.zip`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: '批量生成完成',
-        description: `已开始下载 ${columnSns.length} 个报告的压缩包`,
-      });
-
-      selection.clearSelection();
-      fetchReports(pageNum, searchParams);
-    } catch (error) {
-      console.error('批量生成失败:', error);
-      const backendMsg = error?.response?.data?.message;
-      const errorMessage = backendMsg || (error instanceof Error ? error.message : '无法批量生成报告');
-      toast({
-        title: '批量生成失败',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    }
-  }, [fetchReports, pageNum, searchParams, selection, toast]);
 
   // 预览报告（在对话框中显示）
   const handlePreview = useCallback(async (report) => {
@@ -468,10 +379,12 @@ export default function QueryReportsPage(props) {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-              <User className="w-3 h-3 mr-1" />
-              {getUserTypeLabel(currentUser.type)}
-            </Badge>
+            <AntdTag
+              label={getUserTypeLabel(currentUser.type)}
+              color="sky"
+              showDot={false}
+              prefix={<User className="w-3 h-3 mr-1" />}
+            />
           </div>
         </div>
       </div>
@@ -498,10 +411,6 @@ export default function QueryReportsPage(props) {
                   <Button variant="outline" size="sm" onClick={selection.clearSelection}>
                     取消选择
                   </Button>
-                  <Button size="sm" variant="outline" onClick={handleBatchGenerateApprovedReports}>
-                    <FileText className="w-4 h-4 mr-2" />
-                    批量生成
-                  </Button>
                   <Button size="sm" onClick={handleBatchDownload} className="bg-blue-600 hover:bg-blue-700">
                     <Download className="w-4 h-4 mr-2" />
                     批量下载
@@ -521,10 +430,6 @@ export default function QueryReportsPage(props) {
                 报告列表
               </span>
               <div className="flex items-center space-x-2">
-                <Button size="sm" onClick={handleGenerateReport} className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  生成报告
-                </Button>
                 <div className="text-sm text-gray-500">
                   当前页显示 {currentReports.length} 条，共 {total} 个报告
                 </div>
@@ -551,7 +456,6 @@ export default function QueryReportsPage(props) {
                 }
                 onPreview={handlePreview}
                 onDownload={handleDownload}
-                onGenerate={handleGenerateApprovedReport}
               />
             )}
           </CardContent>
@@ -566,10 +470,10 @@ export default function QueryReportsPage(props) {
               <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">暂无报告</h3>
               <p className="text-gray-500 mb-4">还没有生成任何检测报告</p>
-              <Button onClick={handleGenerateReport} className="bg-blue-600 hover:bg-blue-700">
+              {/* <Button onClick={handleGenerateReport} className="bg-blue-600 hover:bg-blue-700">
                 <Plus className="w-4 h-4 mr-2" />
                 生成第一个报告
-              </Button>
+              </Button> */}
             </CardContent>
           </Card>}
       </div>

@@ -1,11 +1,12 @@
 // @ts-ignore;
 import React from 'react';
 // @ts-ignore;
-import { Button, Badge, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Checkbox } from '@/components/ui';
+import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Checkbox } from '@/components/ui';
 // @ts-ignore;
 import { Eye, ChevronDown, ChevronUp, Download, FileText } from 'lucide-react';
 // @ts-ignore;
 import { DetectionDataCard } from '@/components/DetectionDataCard.jsx';
+import { ModeTag } from '@/components/AntdTag.jsx';
 
 export const ReportTable = ({
   reports = [],
@@ -63,15 +64,13 @@ export const ReportTable = ({
               <TableCell>{report.sapOrderNo}</TableCell>
               <TableCell>{report.deviceSn}</TableCell>
               <TableCell>
-                <Badge variant={report.mode === '糖化模式' ? 'default' : 'secondary'}>
-                  {report.mode}
-                </Badge>
+                <ModeTag mode={report.mode} />
               </TableCell>
               <TableCell>{report.inspectionDate}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
                   {/* 必须传入 report 对象 */}
-                  {/* 展开/收起按钮 */}
+                  {/* 展开/收起按钮 
                   <Button
                     variant="ghost"
                     size="sm"
@@ -83,18 +82,18 @@ export const ReportTable = ({
                     ) : (
                       <ChevronDown className="h-4 w-4" />
                     )}
-                  </Button>
+                  </Button>*/}
                   <Button variant="ghost" size="sm" onClick={() => onPreview(report)}>
                     <Eye className="h-4 w-4 mr-1" /> 预览
                   </Button>
-                  <Button
+                  {/* <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => onGenerate?.(report)}
                     disabled={!onGenerate}
                   >
                     <FileText className="h-4 w-4 mr-1" /> 生成
-                  </Button>
+                  </Button> */}
                   <Button variant="ghost" size="sm" onClick={() => onDownload(report)}>
                     <Download className="h-4 w-4 mr-1" /> 下载
                   </Button>
@@ -102,7 +101,7 @@ export const ReportTable = ({
               </TableCell>
             </TableRow>
 
-            {/* 展开的检测数据行 */}
+            {/* 展开的检测数据行 
             {expandedRows.includes(report.columnSn) && (
               <TableRow>
                 <TableCell colSpan={8} className="bg-gray-50 p-4">
@@ -114,7 +113,7 @@ export const ReportTable = ({
                   />
                 </TableCell>
               </TableRow>
-            )}
+            )}*/}
           </React.Fragment>
         )))}
       </TableBody>

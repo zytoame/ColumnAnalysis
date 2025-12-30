@@ -1,11 +1,12 @@
 // @ts-ignore;
 import React from 'react';
 // @ts-ignore;
-import { Button, Badge, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui';
+import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui';
 // @ts-ignore;
 import { Eye, ChevronDown, ChevronUp } from 'lucide-react';
 // @ts-ignore;
 import { DetectionDataCard } from '@/components/DetectionDataCard.jsx';
+import { ModeTag } from '@/components/AntdTag.jsx';
 
 export function BatchAuditTable({
   columns,
@@ -58,9 +59,7 @@ export function BatchAuditTable({
               <TableCell>{column.sapOrderNo}</TableCell>
               <TableCell>{column.deviceSn}</TableCell>
               <TableCell>
-                <Badge variant={column.mode === '糖化模式' ? 'default' : 'secondary'}>
-                  {column.mode}
-                </Badge>
+                <ModeTag mode={column.mode} />
               </TableCell>
               <TableCell>{column.preprocessColumnSn || '-'}</TableCell>
               <TableCell>{column.inspectionDate || '-'}</TableCell>
