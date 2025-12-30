@@ -3,6 +3,7 @@ import MAIN from '../pages/main.jsx';
 import UNQUALIFIED_REPORTS from '../pages/unqualified-reports.jsx';
 import QUERY_REPORTS from '../pages/query-reports.jsx';
 import QUERY_COLUMNS from '../pages/query-columns.jsx';
+import STANDARD_MANAGE from '../pages/standard-manage.jsx';
 
 export const routers = [
   {
@@ -25,5 +26,9 @@ export const routers = [
   {
     id: 'query-columns',
     component: QUERY_COLUMNS,
+  },
+  {
+    id: 'standard-manage',
+    component: STANDARD_MANAGE,
   },
 ];

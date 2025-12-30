@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Badge, useToast } from '@/components/ui';
-import { FileText, Search, CheckCircle, AlertTriangle, Shield, ArrowRight, Clock, Database } from 'lucide-react';
+import { FileText, Search, CheckCircle, AlertTriangle, Shield, ArrowRight, Clock, Database, PenTool } from 'lucide-react';
 import { WorkOrderStats } from '@/components/WorkOrderStats';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES } from '@/constants';
@@ -71,6 +71,17 @@ export default function MainPage(props) {
           total: '-',
         },
         pageId: 'query-columns',
+      },
+      {
+        id: 'standard-manage',
+        title: '标准/模板管理',
+        description: '新增、编辑与维护层析柱标准模板',
+        icon: PenTool,
+        color: 'blue',
+        stats: {
+          total: '-',
+        },
+        pageId: 'standard-manage',
       },
     ];
   }, [statistics]);

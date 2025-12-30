@@ -27,6 +27,24 @@ const columnApi = {
       params: { columnSn },
     }),
 
+  // 标准/模板列表查询
+  listStandards: (params) =>
+    axios.get(`${API_BASE_URL}/column/standard/list`, {
+      params,
+    }),
+
+  // 新增层析柱标准
+  addStandard: (standard) =>
+    axios.post(`${API_BASE_URL}/column/standard`, standard),
+
+  // 修改层析柱标准
+  updateStandard: (standard) =>
+    axios.put(`${API_BASE_URL}/column/standard`, standard),
+
+  // 按ID删除层析柱标准
+  deleteStandardById: (id) =>
+    axios.delete(`${API_BASE_URL}/column/standard/${id}`),
+
   // 查询层析柱重复性测值
   getRepeatabilityData: (columnSn) =>
     axios.get(`${API_BASE_URL}/column/repeatability`, {
