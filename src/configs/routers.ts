@@ -4,12 +4,17 @@ import UNQUALIFIED_REPORTS from '../pages/unqualified-reports.jsx';
 import QUERY_REPORTS from '../pages/query-reports.jsx';
 import QUERY_COLUMNS from '../pages/query-columns.jsx';
 import STANDARD_MANAGE from '../pages/standard-manage.jsx';
+import SIGNATURE_SETTINGS from '../pages/signature-settings.jsx';
 
 export const routers = [
   {
     id: 'main',
     component: MAIN,
     isHome: true,
+  },
+  {
+    id: 'signature-settings',
+    component: SIGNATURE_SETTINGS,
   },
   {
     id: 'batch-audit',

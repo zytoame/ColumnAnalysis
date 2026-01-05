@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, useToast } from '@/components/ui';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  useToast,
+} from '@/components/ui';
 import { FileText, Search, CheckCircle, AlertTriangle, Shield, ArrowRight, Clock, Database, PenTool } from 'lucide-react';
 import { WorkOrderStats } from '@/components/WorkOrderStats';
 import { AntdTag } from '@/components/AntdTag.jsx';
@@ -57,9 +63,9 @@ export default function MainPage(props) {
         description: '查询和下载各类检测报告',
         icon: Search,
         color: 'blue',
-        stats: {
-          total: statistics.totalReports,
-        },
+        // stats: {
+        //   total: statistics.totalReports,
+        // },
         pageId: 'query-reports',
       },
       {
@@ -68,9 +74,6 @@ export default function MainPage(props) {
         description: '查询层析柱全量信息',
         icon: Database,
         color: 'blue',
-        stats: {
-          total: '-',
-        },
         pageId: 'query-columns',
       },
       {
@@ -79,10 +82,15 @@ export default function MainPage(props) {
         description: '新增、编辑与维护层析柱标准模板',
         icon: PenTool,
         color: 'blue',
-        stats: {
-          total: '-',
-        },
         pageId: 'standard-manage',
+      },
+      {
+        id: 'signature-settings',
+        title: '签名配置',
+        description: '设置检验员/审核员签名工号',
+        icon: PenTool,
+        color: 'blue',
+        pageId: 'signature-settings',
       },
     ];
   }, [statistics]);
@@ -227,12 +235,10 @@ export default function MainPage(props) {
                   <CardContent className="pt-0">
                     {/* 统计信息 */}
                     <div className="grid grid-cols-3 gap-2">
-                      {Object.entries(module.stats).map(([key, value]) => (
+                      {Object.entries(module.stats ?? {}).map(([key, value]) => (
                         <div key={key} className="text-center">
                           <p className="text-lg font-semibold text-gray-900">{value}</p>
-                          <p className="text-xs text-gray-500">
-                            {statLabelMap[key] || key}
-                          </p>
+                          <p className="text-xs text-gray-500">{statLabelMap[key] || key}</p>
                         </div>
                       ))}
                     </div>

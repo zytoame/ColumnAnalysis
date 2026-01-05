@@ -5,7 +5,6 @@ import { BatchAuditTable } from '@/components/BatchAuditTable';
 import { BatchAuditStats } from '@/components/BatchAuditStats';
 import { BatchSearchFilters } from '@/components/BatchSearchFilters';
 import { DetailModal } from '@/components/DetailModal';
-import { SignaturePad } from '@/components/SignaturePad';
 import { AntdTag, ConclusionTag } from '@/components/AntdTag.jsx';
 import { useSelection } from '@/hooks/useSelection';
 import { useExpand } from '@/hooks/useExpand';
@@ -21,13 +20,20 @@ export default function BatchAuditPage(props) {
   const { $w, style } = props;
   const { toast } = useToast();
 
+  const chunkArray = useCallback((arr, size) => {
+    const result = [];
+    for (let i = 0; i < arr.length; i += size) {
+      result.push(arr.slice(i, i + size));
+    }
+    return result;
+  }, []);
+
   // 状态管理
   const [pendingColumns, setPendingColumns] = useState([]);
   const [filteredColumns, setFilteredColumns] = useState([]);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [viewingColumn, setViewingColumn] = useState(null);
-  const [showSignatureModal, setShowSignatureModal] = useState(false);
-  const [signing, setSigning] = useState(false);
+  const [approving, setApproving] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [postApproveDialogOpen, setPostApproveDialogOpen] = useState(false);
@@ -246,7 +252,7 @@ export default function BatchAuditPage(props) {
   }, [expand, fetchPendingColumns, selection]);
 
 
-  const handleBatchApprove = useCallback(() => {
+  const handleBatchApprove = useCallback(async () => {
     if (selection.selectedItems.length === 0) {
       toast({
         title: '请选择层析柱',
@@ -255,59 +261,66 @@ export default function BatchAuditPage(props) {
       });
       return;
     }
-    setShowSignatureModal(true);
-  }, [selection.selectedItems.length, toast]);
 
-  // 确认批量审核
-  const handleConfirmBatchApprove = useCallback(
-    async (signatureData) => {
-      setSigning(true);
-      const columnSns = [...selection.selectedItems];
-      const approveCount = columnSns.length;
-      try {
-        await columnApi.batchApprove(columnSns);
-        setShowSignatureModal(false);
-        fetchPendingColumns(pageNum);
-        selection.clearSelection();
-        toast({
-          title: '批量审核成功',
-          description: `${approveCount} 个层析柱已审核通过`,
-        });
+    setApproving(true);
+    const columnSns = [...selection.selectedItems];
+    const approveCount = columnSns.length;
+    try {
+      await columnApi.batchApprove(columnSns);
+      fetchPendingColumns(pageNum);
+      selection.clearSelection();
+      toast({
+        title: '批量审核成功',
+        description: `${approveCount} 个层析柱已审核通过`,
+      });
 
-        if (approveCount > 0) {
-          setApprovedColumnSns(columnSns);
-          setPostApproveDialogOpen(true);
-        }
-      } catch (error) {
-        console.error('批量审核失败:', error);
-        const errorMessage = error instanceof Error ? error.message : '无法完成批量审核';
-        toast({
-          title: '批量审核失败',
-          description: errorMessage,
-          variant: 'destructive',
-        });
-      } finally {
-        setSigning(false);
+      if (approveCount > 0) {
+        setApprovedColumnSns(columnSns);
+        setPostApproveDialogOpen(true);
       }
-    },
-    [fetchPendingColumns, pageNum, selection, toast]
-  );
+    } catch (error) {
+      console.error('批量审核失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '无法完成批量审核';
+      toast({
+        title: '批量审核失败',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setApproving(false);
+    }
+  }, [fetchPendingColumns, pageNum, selection, toast]);
 
   const handleGenerateOnlyAfterApprove = useCallback(async () => {
     if (approvedColumnSns.length === 0) return;
     setGeneratingAfterApprove(true);
     try {
-      const result = await reportApi.generateBatchReportsOnly(approvedColumnSns);
-      const success = result?.success ?? 0;
-      const fail = result?.fail ?? 0;
-
       toast({
-        title: '批量生成完成',
-        description: `成功 ${success} 个，失败 ${fail} 个`,
+        title: '已开始生成报告，请稍后到报告查询页查看',
       });
 
       setPostApproveDialogOpen(false);
       setApprovedColumnSns([]);
+
+      const columnSns = [...approvedColumnSns];
+      const batches = chunkArray(columnSns, 20);
+
+      void (async () => {
+        try {
+          for (let i = 0; i < batches.length; i += 1) {
+            await reportApi.submitGenerateOnlyTask(batches[i]);
+          }
+        } catch (e) {
+          console.error('提交批量生成任务失败:', e);
+          const backendMsg = e?.response?.data?.message;
+          const errorMessage = backendMsg || (e instanceof Error ? e.message : '无法提交生成任务');
+          toast({
+            title: '提交生成任务失败',
+            description: errorMessage,
+            variant: 'destructive',
+          });
+        }
+      })();
     } catch (error) {
       console.error('批量生成失败:', error);
       const backendMsg = error?.response?.data?.message;
@@ -320,31 +333,70 @@ export default function BatchAuditPage(props) {
     } finally {
       setGeneratingAfterApprove(false);
     }
-  }, [approvedColumnSns, toast]);
+  }, [approvedColumnSns, chunkArray, toast]);
 
   const handleGenerateAndDownloadAfterApprove = useCallback(async () => {
     if (approvedColumnSns.length === 0) return;
     setGeneratingAfterApprove(true);
     try {
-      const response = await reportApi.generateBatchReports(approvedColumnSns);
-
-      const blob = new Blob([response.data], { type: 'application/zip' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Reports_AfterApprove_${new Date().getTime()}.zip`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
       toast({
-        title: '批量生成完成',
-        description: `已开始下载 ${approvedColumnSns.length} 个报告的压缩包`,
+        title: '已开始生成压缩包，完成后将自动下载',
       });
 
       setPostApproveDialogOpen(false);
       setApprovedColumnSns([]);
+
+      const columnSns = [...approvedColumnSns];
+      const submitResult = await reportApi.submitGenerateZipTask(columnSns);
+      const taskId = submitResult?.taskId;
+      if (!taskId) {
+        throw new Error('未获取到任务ID');
+      }
+
+      void (async () => {
+        try {
+          const startedAt = Date.now();
+          while (true) {
+            const task = await reportApi.getTask(taskId);
+            if (task?.status === 'FAILED') {
+              throw new Error('任务执行失败');
+            }
+            if (task?.downloadReady) {
+              const response = await reportApi.downloadTaskZip(taskId);
+              const blob = new Blob([response.data], { type: 'application/zip' });
+              const url = window.URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.setAttribute('download', `Reports_AfterApprove_${new Date().getTime()}.zip`);
+              document.body.appendChild(link);
+              link.click();
+              link.parentNode.removeChild(link);
+              window.URL.revokeObjectURL(url);
+
+              toast({
+                title: '下载开始',
+                description: `已开始下载 ${columnSns.length} 个报告的压缩包`,
+              });
+              break;
+            }
+
+            if (Date.now() - startedAt > 15 * 60 * 1000) {
+              throw new Error('生成超时，请稍后在报告页确认是否已生成');
+            }
+
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+        } catch (e) {
+          console.error('生成并下载任务失败:', e);
+          const backendMsg = e?.response?.data?.message;
+          const errorMessage = backendMsg || (e instanceof Error ? e.message : '无法生成并下载报告');
+          toast({
+            title: '生成并下载失败',
+            description: errorMessage,
+            variant: 'destructive',
+          });
+        }
+      })();
     } catch (error) {
       console.error('批量生成并下载失败:', error);
       const backendMsg = error?.response?.data?.message;
@@ -534,9 +586,14 @@ export default function BatchAuditPage(props) {
                   <Button variant="outline" size="sm" onClick={selection.clearSelection}>
                     取消选择
                   </Button>
-                  <Button size="sm" onClick={handleBatchApprove} className="bg-green-600 hover:bg-green-700">
+                  <Button
+                    size="sm"
+                    onClick={handleBatchApprove}
+                    disabled={approving}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
                     <PenTool className="w-4 h-4 mr-2" />
-                    批量审核通过
+                    {approving ? '审核中...' : '批量审核通过'}
                   </Button>
                 </div>
               </div>
@@ -609,19 +666,6 @@ export default function BatchAuditPage(props) {
           }}
         />
       )}
-
-      {/* 签名模态框 */}
-      {showSignatureModal && (
-        <SignaturePad
-          isOpen={showSignatureModal}
-          onClose={() => {
-            setShowSignatureModal(false);
-          }}
-          onConfirm={handleConfirmBatchApprove}
-          signing={signing}
-        />
-      )}
-
       <Dialog
         open={postApproveDialogOpen}
         onOpenChange={(open) => {

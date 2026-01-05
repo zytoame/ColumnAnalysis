@@ -11,13 +11,10 @@ import { ModeTag } from '@/components/AntdTag.jsx';
 export const ReportTable = ({
   reports = [],
   selectedReports = [],
-  expandedRows = [],
   onSelectReport,
   onSelectAll,
-  onToggleExpand,
   onPreview,
   onDownload,
-  onGenerate,
 }) => {
   // 判断当前页是否全选
   const isAllSelected = reports.length > 0 &&

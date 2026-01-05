@@ -15,6 +15,22 @@ const reportApi = {
   generateBatchReportsOnly: (columnSns) =>
     axios.post(`${API_BASE_URL}/report/generate-batch-only`, columnSns).then((response) => response.data),
 
+  // 异步任务：批量生成（仅生成不下载）
+  submitGenerateOnlyTask: (columnSns) =>
+    axios.post(`${API_BASE_URL}/report/tasks/generate`, columnSns).then((response) => response.data),
+
+  // 异步任务：批量生成并打包ZIP
+  submitGenerateZipTask: (columnSns) =>
+    axios.post(`${API_BASE_URL}/report/tasks/generate-zip`, columnSns).then((response) => response.data),
+
+  // 异步任务：查询任务状态
+  getTask: (taskId) =>
+    axios.get(`${API_BASE_URL}/report/tasks/${taskId}`).then((response) => response.data),
+
+  // 异步任务：下载任务ZIP
+  downloadTaskZip: (taskId) =>
+    axios.get(`${API_BASE_URL}/report/tasks/${taskId}/download`, { responseType: 'blob' }),
+
   // 查询报告
   getReportsByColumn: (columnSn, pageNum = 1, pageSize = 10) =>
     axios.get(`${API_BASE_URL}/report/by-column/${columnSn}`, {

@@ -276,7 +276,6 @@ export function EditModal({
       const nextConclusion = computeConclusionByStandard(data.standard, data.result);
       if (data.conclusion !== nextConclusion) {
         setEditedReport((prev) => {
-          const prevConclusion = prev?.detectionData?.[key]?.conclusion;
           return {
             ...prev,
             detectionData: {
@@ -290,7 +289,7 @@ export function EditModal({
         });
       }
     });
-  }, [computeConclusionByStandard, editedReport?.detectionData, isOpen]);
+  }, [editedReport?.detectionData, isOpen]);
 
   // 更新检测数据
   const updateDetectionData = (key, field, value) => {
