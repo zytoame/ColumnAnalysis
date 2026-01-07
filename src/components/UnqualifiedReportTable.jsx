@@ -51,8 +51,8 @@ export function UnqualifiedReportTable({
                 />
               </TableCell>
               <TableCell className="font-medium">{report.columnSn}</TableCell>
-              <TableCell>{report.sapWorkOrderNo}</TableCell>
-              <TableCell>{report.sapOrderNo}</TableCell>
+              <TableCell>{report.aufnr}</TableCell>
+              <TableCell>{report.vbeln}</TableCell>
               <TableCell>{report.deviceSn}</TableCell>
               <TableCell>
                 <ModeTag mode={report.mode} />

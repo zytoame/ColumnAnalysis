@@ -14,6 +14,7 @@ export const ReportTable = ({
   onSelectReport,
   onSelectAll,
   onPreview,
+  onGenerate,
   onDownload,
 }) => {
   // 判断当前页是否全选
@@ -33,7 +34,7 @@ export const ReportTable = ({
           <TableHead>层析柱序列号</TableHead>
           <TableHead>工单号</TableHead>
           <TableHead>订单号</TableHead>
-          <TableHead>仪器序列号</TableHead>
+          <TableHead>报告类型</TableHead>
           <TableHead>检测模式</TableHead>
           <TableHead>检测日期</TableHead>
           <TableHead>操作</TableHead>
@@ -42,7 +43,7 @@ export const ReportTable = ({
       <TableBody>
         {reports.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={9} className="text-center">
+            <TableCell colSpan={8} className="text-center">
               暂无数据
             </TableCell>
           </TableRow>
@@ -57,9 +58,9 @@ export const ReportTable = ({
                 />
               </TableCell>
               <TableCell className="font-medium">{report.columnSn}</TableCell>
-              <TableCell>{report.sapWorkOrderNo}</TableCell>
-              <TableCell>{report.sapOrderNo}</TableCell>
-              <TableCell>{report.deviceSn}</TableCell>
+              <TableCell>{report.aufnr}</TableCell>
+              <TableCell>{report.vbeln}</TableCell>
+              <TableCell>{report.reportType}</TableCell>
               <TableCell>
                 <ModeTag mode={report.mode} />
               </TableCell>
@@ -82,6 +83,14 @@ export const ReportTable = ({
                   </Button>*/}
                   <Button variant="ghost" size="sm" onClick={() => onPreview(report)}>
                     <Eye className="h-4 w-4 mr-1" /> 预览
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onGenerate?.(report)}
+                    disabled={!onGenerate}
+                  >
+                    <FileText className="h-4 w-4 mr-1" /> 生成
                   </Button>
                   {/* <Button
                     variant="ghost"

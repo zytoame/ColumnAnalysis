@@ -35,9 +35,9 @@ export default function UnqualifiedReportsPage(props) {
 
   // 搜索条件
   const [searchParams, setSearchParams] = useState({
-    sapWorkOrderNo: '',
+    aufnr: '',
     columnSn: '',
-    sapOrderNo: '',
+    vbeln: '',
     deviceSn: '',
     mode: TEST_TYPES.ALL,
     dateRange: DATE_RANGES.ALL,
@@ -69,8 +69,8 @@ export default function UnqualifiedReportsPage(props) {
       finalConclusion: CONCLUSION_STATUS.UNQUALIFIED,
       testResult: '不合格',
       testType: c?.mode,
-      workOrder: c?.sapWorkOrderNo,
-      orderNumber: c?.sapOrderNo,
+      workOrder: c?.aufnr,
+      orderNumber: c?.vbeln,
       instrumentSerial: c?.deviceSn,
       testDate: c?.inspectionDate,
       submitTime: c?.createdAt,
@@ -242,9 +242,9 @@ export default function UnqualifiedReportsPage(props) {
   // 重置搜索
   const handleReset = useCallback(() => {
     setSearchParams({
-      sapWorkOrderNo: '',
+      aufnr: '',
       columnSn: '',
-      sapOrderNo: '',
+      vbeln: '',
       deviceSn: '',
       mode: TEST_TYPES.ALL,
       dateRange: DATE_RANGES.ALL,

@@ -69,7 +69,7 @@ export function DetailModal({
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">工单号</label>
-                    <p className="font-medium">{column.sapWorkOrderNo}</p>
+                    <p className="font-medium">{column.aufnr}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">层析柱序列号</label>
@@ -77,7 +77,7 @@ export function DetailModal({
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">订单号</label>
-                    <p className="font-medium">{column.sapOrderNo}</p>
+                    <p className="font-medium">{column.vbeln}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">仪器序列号</label>

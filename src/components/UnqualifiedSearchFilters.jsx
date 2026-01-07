@@ -12,23 +12,12 @@ export function UnqualifiedSearchFilters({
   loading,
 }) {
   const fields = [
-    {
-      type: 'input',
-      name: 'sapWorkOrderNo',
-      label: '工单号',
-      placeholder: '请输入工单号',
-    },
+    
     {
       type: 'input',
       name: 'columnSn',
       label: '层析柱序列号',
       placeholder: '请输入层析柱序列号',
-    },
-    {
-      type: 'input',
-      name: 'sapOrderNo',
-      label: '订单号',
-      placeholder: '请输入订单号',
     },
     {
       type: 'input',

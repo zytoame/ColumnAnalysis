@@ -20,6 +20,7 @@ export default function BatchAuditPage(props) {
   const { $w, style } = props;
   const { toast } = useToast();
 
+  // 分批，将数组分成多个子数组
   const chunkArray = useCallback((arr, size) => {
     const result = [];
     for (let i = 0; i < arr.length; i += size) {
@@ -48,9 +49,9 @@ export default function BatchAuditPage(props) {
 
   // 搜索条件
   const [searchParams, setSearchParams] = useState({
-    sapWorkOrderNo: '',
+    aufnr: '',
     columnSn: '',
-    sapOrderNo: '',
+    vbeln: '',
     deviceSn: '',
     mode: TEST_TYPES.ALL,
   });
@@ -67,6 +68,7 @@ export default function BatchAuditPage(props) {
     []
   );
 
+  // 列表项转UI
   const mapColumnToUi = useCallback((c) => {
     const finalConclusion = c?.status === '合格' ? CONCLUSION_STATUS.QUALIFIED : CONCLUSION_STATUS.UNQUALIFIED;
     return {
@@ -102,6 +104,7 @@ export default function BatchAuditPage(props) {
     };
   }, []);
 
+  // 格式化范围
   const formatRange = useCallback((min, max) => {
     const minV = min == null ? null : `${min}`;
     const maxV = max == null ? null : `${max}`;
@@ -111,6 +114,7 @@ export default function BatchAuditPage(props) {
     return `<= ${maxV}`;
   }, []);
 
+  // 应用标准
   const applyStandardToColumns = useCallback((columnSn, standard) => {
     const standardText = {
       setTemperature: formatRange(standard?.minTemperature, standard?.maxTemperature),
@@ -141,6 +145,7 @@ export default function BatchAuditPage(props) {
     setFilteredColumns((prev) => prev.map(patchOne));
   }, [formatRange]);
 
+  // 获取并缓存标准
   const fetchAndCacheStandard = useCallback(async (columnSn) => {
     if (!columnSn) return null;
     if (standardCache[columnSn]) return standardCache[columnSn];
@@ -155,6 +160,7 @@ export default function BatchAuditPage(props) {
     return standard;
   }, [standardCache]);
 
+  // 切换展开/折叠
   const handleToggleExpandWithStandard = useCallback(async (columnSn) => {
     const isExpanded = expand.expandedItems.includes(columnSn);
     if (isExpanded) {
@@ -180,6 +186,7 @@ export default function BatchAuditPage(props) {
   // 当前页数据（后端已分页）
   const currentColumns = useMemo(() => filteredColumns, [filteredColumns]);
 
+  // 获取待审核层析柱
   const fetchPendingColumns = useCallback(async (page = 1) => {
     setLoading(true);
     try {
@@ -204,6 +211,7 @@ export default function BatchAuditPage(props) {
     }
   }, [mapColumnToUi, toast]);
 
+  // 搜索
   const handleSearch = useCallback(async () => {
     setLoading(true);
     try {
@@ -240,9 +248,9 @@ export default function BatchAuditPage(props) {
   // 重置搜索
   const handleReset = useCallback(() => {
     setSearchParams({
-      sapWorkOrderNo: '',
+      aufnr: '',
       columnSn: '',
-      sapOrderNo: '',
+      vbeln: '',
       deviceSn: '',
       mode: TEST_TYPES.ALL,
     });
@@ -251,7 +259,7 @@ export default function BatchAuditPage(props) {
     fetchPendingColumns(1);
   }, [expand, fetchPendingColumns, selection]);
 
-
+  // 批量审核
   const handleBatchApprove = useCallback(async () => {
     if (selection.selectedItems.length === 0) {
       toast({
@@ -291,6 +299,7 @@ export default function BatchAuditPage(props) {
     }
   }, [fetchPendingColumns, pageNum, selection, toast]);
 
+  // 批量生成报告
   const handleGenerateOnlyAfterApprove = useCallback(async () => {
     if (approvedColumnSns.length === 0) return;
     setGeneratingAfterApprove(true);
@@ -299,12 +308,17 @@ export default function BatchAuditPage(props) {
         title: '已开始生成报告，请稍后到报告查询页查看',
       });
 
+      // 关闭对话框
       setPostApproveDialogOpen(false);
+      // 清空已审核列表
       setApprovedColumnSns([]);
 
+      // 获取已审核列表
       const columnSns = [...approvedColumnSns];
+      // 分批
       const batches = chunkArray(columnSns, 20);
 
+      // 提交生成任务
       void (async () => {
         try {
           for (let i = 0; i < batches.length; i += 1) {
@@ -331,22 +345,29 @@ export default function BatchAuditPage(props) {
         variant: 'destructive',
       });
     } finally {
+      // 重置状态
       setGeneratingAfterApprove(false);
     }
   }, [approvedColumnSns, chunkArray, toast]);
 
+  // 批量生成报告并下载
   const handleGenerateAndDownloadAfterApprove = useCallback(async () => {
     if (approvedColumnSns.length === 0) return;
+    // 开始生成
     setGeneratingAfterApprove(true);
     try {
       toast({
         title: '已开始生成压缩包，完成后将自动下载',
       });
 
+      // 关闭对话框
       setPostApproveDialogOpen(false);
+      // 清空已审核列表
       setApprovedColumnSns([]);
 
+      // 获取已审核列表
       const columnSns = [...approvedColumnSns];
+      // 提交生成任务
       const submitResult = await reportApi.submitGenerateZipTask(columnSns);
       const taskId = submitResult?.taskId;
       if (!taskId) {
@@ -357,6 +378,7 @@ export default function BatchAuditPage(props) {
         try {
           const startedAt = Date.now();
           while (true) {
+            // 获取任务状态
             const task = await reportApi.getTask(taskId);
             if (task?.status === 'FAILED') {
               throw new Error('任务执行失败');
@@ -407,6 +429,7 @@ export default function BatchAuditPage(props) {
         variant: 'destructive',
       });
     } finally {
+      // 重置状态
       setGeneratingAfterApprove(false);
     }
   }, [approvedColumnSns, toast]);

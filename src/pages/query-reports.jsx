@@ -34,6 +34,11 @@ export default function QueryReportsPage(props) {
   const [previewError, setPreviewError] = useState('');
   const [previewColumnSn, setPreviewColumnSn] = useState('');
 
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [generateTarget, setGenerateTarget] = useState(null);
+  const [existenceInfo, setExistenceInfo] = useState(null);
+  const [generating, setGenerating] = useState(false);
+
   // 关闭预览对话框时的清理
   const handleClosePreview = useCallback(() => {
     setPreviewDialogOpen(false);
@@ -51,11 +56,14 @@ export default function QueryReportsPage(props) {
 
   // 搜索条件
   const [searchParams, setSearchParams] = useState({
-    sapWorkOrderNo: '',
-    columnSn: '',
-    sapOrderNo: '',
-    deviceSn: '',
-    mode: TEST_TYPES.ALL,
+    GI_AUFNR: '',  // 工单号
+    columnSn: '',  // 层析柱序列号
+    GI_VBELN: '',  // 订单号
+    GI_RSNUM: '',  // 预留单号
+    GI_ZDH: '',    // 非生产领料单号
+    GI_ZBHLS: '',  // 备货单号
+    reportType: 'all', // 报告类型（CN/EN）
+    mode: TEST_TYPES.ALL, // 检验类型
     status: 'all', // 报告状态：all(全部), GENERATED(已生成), DOWNLOADED(已下载)
   });
 
@@ -87,10 +95,15 @@ export default function QueryReportsPage(props) {
   const fetchReports = useCallback(async (page = 1, currentParams) => {
     setLoading(true);
     try {
-      // 如果没有传入参数，使用当前的 searchParams
-      const params = currentParams !== undefined ? currentParams : searchParams;
+      const params = currentParams || {};
+      const req = {
+        ...params,
+        mode: params?.mode === TEST_TYPES.ALL ? '' : params?.mode,
+        status: params?.status === 'all' ? '' : params?.status,
+        reportType: params?.reportType === 'all' ? '' : params?.reportType,
+      };
       const response = await reportApi.searchReports(
-        params,
+        req,
         page,
         PAGINATION.DEFAULT_PAGE_SIZE
       );
@@ -115,7 +128,7 @@ export default function QueryReportsPage(props) {
     } finally {
       setLoading(false);
     }
-  }, [searchParams, toast]);
+  }, [toast]);
 
   // 搜索处理
   const handleSearch = useCallback(async () => {
@@ -142,10 +155,13 @@ export default function QueryReportsPage(props) {
   // 重置搜索
   const handleReset = () => {
     const resetValues = {
-      sapWorkOrderNo: '',
+      GI_AUFNR: '',
       columnSn: '',
-      sapOrderNo: '',
-      deviceSn: '',
+      GI_VBELN: '',
+      GI_RSNUM: '',  // 预留单号
+      GI_ZDH: '',    // 非生产领料单号
+      GI_ZBHLS: '',  // 备货单号
+      reportType: 'all', // 报告类型（CN/EN）
       mode: TEST_TYPES.ALL,
       status: 'all', // 报告状态：all(全部), GENERATED(已生成), DOWNLOADED(已下载)
     };
@@ -276,6 +292,98 @@ export default function QueryReportsPage(props) {
     [toast]
   );
 
+  const handlePreviewById = useCallback(
+    async (reportId, columnSn) => {
+      try {
+        setPreviewLoading(true);
+        setPreviewError('');
+        setPreviewColumnSn(columnSn || '');
+        const response = await reportApi.previewReportById(reportId);
+
+        const contentType = response?.headers?.['content-type'] || '';
+        if (!contentType.includes('pdf')) {
+          throw new Error('后端返回的不是PDF文件，无法预览');
+        }
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const blobUrl = window.URL.createObjectURL(blob);
+
+        setPreviewBlobUrl(blobUrl);
+        setPreviewUrl(blobUrl);
+        setPreviewTitle(`报告预览 - ${columnSn || reportId}`);
+        setPreviewDialogOpen(true);
+      } catch (error) {
+        console.error('获取报告详情失败:', error);
+        console.error('错误详情:', error.response?.data || error.message);
+        setPreviewError(error.response?.data?.message || error.message || '无法加载报告');
+        toast({
+          title: '预览失败',
+          description: error.response?.data?.message || error.message || '无法加载报告',
+          variant: 'destructive',
+        });
+      } finally {
+        setPreviewLoading(false);
+      }
+    },
+    [toast]
+  );
+
+  const doGenerateReport = useCallback(
+    async (columnSn, mode) => {
+      if (!columnSn) return;
+      setGenerating(true);
+      try {
+        await reportApi.generateReport(columnSn, mode);
+        toast({
+          title: '生成成功',
+          description: `报告 ${columnSn} 已重新生成`,
+        });
+        await fetchReports(pageNum, searchParams);
+        setGenerateDialogOpen(false);
+        setExistenceInfo(null);
+        setGenerateTarget(null);
+      } catch (error) {
+        console.error('生成报告失败:', error);
+        const backendMsg = error?.response?.data?.message;
+        const errorMessage = backendMsg || (error instanceof Error ? error.message : '无法生成报告');
+        toast({
+          title: '生成失败',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [fetchReports, pageNum, searchParams, toast]
+  );
+
+  const handleGenerate = useCallback(
+    async (report) => {
+      try {
+        const columnSn = report?.columnSn;
+        if (!columnSn) return;
+        setGenerateTarget(report);
+        const info = await reportApi.checkReportExistence(columnSn);
+        if (info?.exists) {
+          setExistenceInfo(info);
+          setGenerateDialogOpen(true);
+          return;
+        }
+        await doGenerateReport(columnSn, 'BACKUP_OVERWRITE');
+      } catch (error) {
+        console.error('检查报告失败:', error);
+        const backendMsg = error?.response?.data?.message;
+        const errorMessage = backendMsg || (error instanceof Error ? error.message : '无法检查报告状态');
+        toast({
+          title: '操作失败',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+      }
+    },
+    [doGenerateReport, toast]
+  );
+
   // 返回主页
   const handleBackToMain = useCallback(() => {
     $w?.utils.navigateTo({
@@ -361,7 +469,7 @@ export default function QueryReportsPage(props) {
   // 组件挂载时获取数据
   useEffect(() => {
     fetchReports(1, searchParams);
-  }, [fetchReports]);
+  }, []);
 
   return <div style={style} className="min-h-screen bg-gray-50">
       {/* 顶部导航 */}
@@ -455,6 +563,7 @@ export default function QueryReportsPage(props) {
                   )
                 }
                 onPreview={handlePreview}
+                onGenerate={handleGenerate}
                 onDownload={handleDownload}
               />
             )}
@@ -523,6 +632,77 @@ export default function QueryReportsPage(props) {
                 />
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={generateDialogOpen}
+        onOpenChange={(open) => {
+          if (generating) return;
+          setGenerateDialogOpen(open);
+          if (!open) {
+            setExistenceInfo(null);
+            setGenerateTarget(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>报告已存在</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-600">
+            <div>
+              当前层析柱：<span className="font-medium text-gray-900">{generateTarget?.columnSn}</span>
+            </div>
+            <div>
+              当前报告ID：<span className="font-medium text-gray-900">{existenceInfo?.currentReportId}</span>
+            </div>
+            <div>
+              历史备份数量：<span className="font-medium text-gray-900">{existenceInfo?.backupCount ?? 0}</span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 pt-2">
+            <Button
+              variant="outline"
+              disabled={!existenceInfo?.currentReportId}
+              onClick={() =>
+                handlePreviewById(existenceInfo?.currentReportId, generateTarget?.columnSn)
+              }
+            >
+              预览当前报告
+            </Button>
+            <Button
+              onClick={() => doGenerateReport(generateTarget?.columnSn, 'BACKUP_OVERWRITE')}
+              disabled={generating}
+            >
+              {generating ? '处理中...' : '备份后覆盖（推荐）'}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => doGenerateReport(generateTarget?.columnSn, 'OVERWRITE_ONLY')}
+              disabled={generating}
+            >
+              仅覆盖最新（不备份）
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const ok = window.confirm('确认清空所有历史备份后再覆盖生成？该操作不可恢复。');
+                if (!ok) return;
+                doGenerateReport(generateTarget?.columnSn, 'PURGE_AND_OVERWRITE');
+              }}
+              disabled={generating}
+            >
+              清空历史后覆盖（危险）
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setGenerateDialogOpen(false)}
+              disabled={generating}
+            >
+              取消
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

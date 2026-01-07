@@ -14,9 +14,9 @@ export function SearchFilters({
   const fields = [
     {
       type: 'input',
-      name: 'sapWorkOrderNo',
-      label: '工单号',
-      placeholder: '请输入工单号',
+      name: 'GI_AUFNR',
+      label: 'AUFNR(工单号)',
+      placeholder: '请输入 AUFNR',
     },
     {
       type: 'input',
@@ -26,15 +26,38 @@ export function SearchFilters({
     },
     {
       type: 'input',
-      name: 'sapOrderNo',
-      label: '订单号',
-      placeholder: '请输入订单号',
+      name: 'GI_VBELN',
+      label: 'VBELN(订单号)',
+      placeholder: '请输入 VBELN',
     },
     {
       type: 'input',
-      name: 'deviceSn',
-      label: '仪器序列号',
-      placeholder: '请输入仪器序列号',
+      name: 'GI_RSNUM',
+      label: 'RSNUM(预留单号)',
+      placeholder: '请输入 RSNUM',
+    },
+    {
+      type: 'input',
+      name: 'GI_ZDH',
+      label: 'ZDH(非生产领料单号)',
+      placeholder: '请输入 ZDH',
+    },
+    {
+      type: 'input',
+      name: 'GI_ZBHLS',
+      label: 'ZBHS(备货单号)',
+      placeholder: '请输入 ZBHS',
+    },
+    {
+      type: 'select',
+      name: 'reportType',
+      label: '报告类型',
+      placeholder: '选择报告类型',
+      options:[
+        {value: 'all', label: '全部'},
+        {value: 'CN', label: 'CN'},
+        {value: 'EN', label: 'EN'},
+      ]
     },
     {
       type: 'select',

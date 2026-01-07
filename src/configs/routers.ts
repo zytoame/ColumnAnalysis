@@ -5,6 +5,7 @@ import QUERY_REPORTS from '../pages/query-reports.jsx';
 import QUERY_COLUMNS from '../pages/query-columns.jsx';
 import STANDARD_MANAGE from '../pages/standard-manage.jsx';
 import SIGNATURE_SETTINGS from '../pages/signature-settings.jsx';
+import DEVICE_CONFIG from '../pages/device-config.jsx';
 
 export const routers = [
   {
@@ -35,5 +36,9 @@ export const routers = [
   {
     id: 'standard-manage',
     component: STANDARD_MANAGE,
+  },
+  {
+    id: 'device-config',
+    component: DEVICE_CONFIG,
   },
 ];

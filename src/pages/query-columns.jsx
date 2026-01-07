@@ -40,18 +40,18 @@ export default function QueryColumnsPage(props) {
   const [total, setTotal] = useState(0);
 
   const [draftSearchParams, setDraftSearchParams] = useState({
-    sapWorkOrderNo: '',
+    aufnr: '',
     columnSn: '',
-    sapOrderNo: '',
+    vbeln: '',
     deviceSn: '',
     mode: TEST_TYPES.ALL,
     status: 'all',
   });
 
   const [appliedSearchParams, setAppliedSearchParams] = useState({
-    sapWorkOrderNo: '',
+    aufnr: '',
     columnSn: '',
-    sapOrderNo: '',
+    vbeln: '',
     deviceSn: '',
     mode: TEST_TYPES.ALL,
     status: 'all',
@@ -69,7 +69,7 @@ export default function QueryColumnsPage(props) {
     () => [
       {
         type: 'input',
-        name: 'sapWorkOrderNo',
+        name: 'aufnr',
         label: '工单号',
         placeholder: '请输入工单号',
       },
@@ -81,7 +81,7 @@ export default function QueryColumnsPage(props) {
       },
       {
         type: 'input',
-        name: 'sapOrderNo',
+        name: 'vbeln',
         label: '订单号',
         placeholder: '请输入订单号',
       },
@@ -94,10 +94,10 @@ export default function QueryColumnsPage(props) {
       {
         type: 'select',
         name: 'mode',
-        label: '检测类型',
-        placeholder: '选择检测类型',
+        label: '检测模式',
+        placeholder: '选择检测模式',
         options: [
-          { value: TEST_TYPES.ALL, label: '全部类型' },
+          { value: TEST_TYPES.ALL, label: '全部模式' },
           { value: '糖化', label: '糖化模式' },
           { value: '地贫', label: '地贫模式' },
         ],
@@ -174,9 +174,9 @@ export default function QueryColumnsPage(props) {
 
   const handleReset = useCallback(() => {
     const resetValues = {
-      sapWorkOrderNo: '',
+      aufnr: '',
       columnSn: '',
-      sapOrderNo: '',
+      vbeln: '',
       deviceSn: '',
       mode: TEST_TYPES.ALL,
       status: 'all',
@@ -316,7 +316,7 @@ export default function QueryColumnsPage(props) {
                       <TableHead className="w-40 whitespace-nowrap">层析柱序列号</TableHead>
                       <TableHead className="w-32 whitespace-nowrap">工单号</TableHead>
                       <TableHead className="w-32 whitespace-nowrap">订单号</TableHead>
-                      <TableHead className="w-36 whitespace-nowrap">仪器序列号</TableHead>
+                      <TableHead className="w-32 whitespace-nowrap">仪器序列号</TableHead>
                       <TableHead className="w-24 whitespace-nowrap">检测模式</TableHead>
                       <TableHead className="w-24 whitespace-nowrap">状态</TableHead>
                       <TableHead className="w-32 whitespace-nowrap">预处理柱编号</TableHead>
@@ -341,8 +341,8 @@ export default function QueryColumnsPage(props) {
                       columns.map((c) => (
                         <TableRow key={c.columnSn} className="hover:bg-gray-50">
                           <TableCell className="font-medium whitespace-nowrap truncate">{c.columnSn}</TableCell>
-                          <TableCell className="whitespace-nowrap truncate">{c.sapWorkOrderNo || '-'}</TableCell>
-                          <TableCell className="whitespace-nowrap truncate">{c.sapOrderNo || '-'}</TableCell>
+                          <TableCell className="whitespace-nowrap truncate">{c.aufnr || '-'}</TableCell>
+                          <TableCell className="whitespace-nowrap truncate">{c.vbeln || '-'}</TableCell>
                           <TableCell className="whitespace-nowrap truncate">{c.deviceSn || '-'}</TableCell>
                           <TableCell>
                             <ModeTag mode={c.mode} />

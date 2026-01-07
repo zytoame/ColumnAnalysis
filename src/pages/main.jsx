@@ -6,7 +6,7 @@ import {
   CardTitle,
   useToast,
 } from '@/components/ui';
-import { FileText, Search, CheckCircle, AlertTriangle, Shield, ArrowRight, Clock, Database, PenTool } from 'lucide-react';
+import { FileText, Search, CheckCircle, AlertTriangle, Shield, ArrowRight, Clock, Database, PenTool, Cpu } from 'lucide-react';
 import { WorkOrderStats } from '@/components/WorkOrderStats';
 import { AntdTag } from '@/components/AntdTag.jsx';
 import { getUserTypeLabel } from '@/utils/format';
@@ -91,6 +91,14 @@ export default function MainPage(props) {
         icon: PenTool,
         color: 'blue',
         pageId: 'signature-settings',
+      },
+      {
+        id: 'device-config',
+        title: '设备连接配置',
+        description: '配置机器IP/端口/连接模式，并手动连接与断开',
+        icon: Cpu,
+        color: 'blue',
+        pageId: 'device-config',
       },
     ];
   }, [statistics]);

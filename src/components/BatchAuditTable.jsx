@@ -55,8 +55,8 @@ export function BatchAuditTable({
                 />
               </TableCell>
               <TableCell className="font-medium">{column.columnSn}</TableCell>
-              <TableCell>{column.sapWorkOrderNo}</TableCell>
-              <TableCell>{column.sapOrderNo}</TableCell>
+              <TableCell>{column.aufnr}</TableCell>
+              <TableCell>{column.vbeln}</TableCell>
               <TableCell>{column.deviceSn}</TableCell>
               <TableCell>
                 <ModeTag mode={column.mode} />

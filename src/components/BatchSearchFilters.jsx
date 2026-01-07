@@ -14,7 +14,7 @@ export function BatchSearchFilters({
   const fields = [
     {
       type: 'input',
-      name: 'sapWorkOrderNo',
+      name: 'aufnr',
       label: '工单号',
       placeholder: '请输入工单号',
     },
@@ -26,7 +26,7 @@ export function BatchSearchFilters({
     },
     {
       type: 'input',
-      name: 'sapOrderNo',
+      name: 'vbeln',
       label: '订单号',
       placeholder: '请输入订单号',
     },

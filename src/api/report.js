@@ -4,8 +4,16 @@ const API_BASE_URL = '/api'; // 根据实际部署调整
 
 const reportApi = {
   // 单报告生成
-  generateReport: (columnSn) => 
-    axios.post(`${API_BASE_URL}/report/generate`, { columnSn }, { responseType: 'blob' }),
+  generateReport: (columnSn, mode) => 
+    axios.post(`${API_BASE_URL}/report/generate`, { columnSn, mode }, { responseType: 'blob' }),
+
+  // 检查报告是否存在（用于生成前提示）
+  checkReportExistence: (columnSn) =>
+    axios.get(`${API_BASE_URL}/report/existence`, { params: { columnSn } }).then((response) => response.data),
+
+  // 预览指定版本报告
+  previewReportById: (reportId) =>
+    axios.get(`${API_BASE_URL}/report/preview/${reportId}`, { responseType: 'blob' }),
 
   // 批量生成
   generateBatchReports: (columnSns) =>
