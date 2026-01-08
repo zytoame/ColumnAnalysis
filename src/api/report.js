@@ -11,10 +11,6 @@ const reportApi = {
   checkReportExistence: (columnSn) =>
     axios.get(`${API_BASE_URL}/report/existence`, { params: { columnSn } }).then((response) => response.data),
 
-  // 预览指定版本报告
-  previewReportById: (reportId) =>
-    axios.get(`${API_BASE_URL}/report/preview/${reportId}`, { responseType: 'blob' }),
-
   // 批量生成
   generateBatchReports: (columnSns) =>
     axios.post(`${API_BASE_URL}/report/generate-batch`, columnSns, { responseType: 'blob' }),

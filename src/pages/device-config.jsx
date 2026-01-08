@@ -8,12 +8,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Badge,
   Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -45,21 +45,6 @@ const EMPTY_FORM = {
   mode: 'SOCKET',
 };
 
-function StatusBadge({ status }) {
-  if (status === 'CONNECTED') {
-    return (
-      <Badge className="bg-green-100 text-green-700 border border-green-200" variant="secondary">
-        已连接
-      </Badge>
-    );
-  }
-  return (
-    <Badge className="bg-gray-100 text-gray-700 border border-gray-200" variant="secondary">
-      未连接
-    </Badge>
-  );
-}
-
 export default function DeviceConfigPage(props) {
   const { $w, style } = props;
   const { toast } = useToast();
@@ -77,6 +62,8 @@ export default function DeviceConfigPage(props) {
 
   const [machines, setMachines] = useState([]);
   const [statusList, setStatusList] = useState([]);
+
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMachine, setEditingMachine] = useState(null);
@@ -135,6 +122,11 @@ export default function DeviceConfigPage(props) {
   }, [fetchMachines, fetchStatus]);
 
   useEffect(() => {
+    const ids = new Set((machines || []).map((m) => m?.id).filter(Boolean));
+    setSelectedIds((prev) => (prev || []).filter((id) => ids.has(id)));
+  }, [machines]);
+
+  useEffect(() => {
     const timer = setInterval(() => {
       fetchStatus();
     }, 2000);
@@ -148,6 +140,51 @@ export default function DeviceConfigPage(props) {
     }
     return m;
   }, [statusList]);
+
+  const selectableIds = useMemo(() => {
+    return (machines || []).map((m) => m?.id).filter(Boolean);
+  }, [machines]);
+
+  const selectedIdSet = useMemo(() => {
+    return new Set(selectedIds || []);
+  }, [selectedIds]);
+
+  const allSelected = useMemo(() => {
+    if (!selectableIds.length) return false;
+    return selectableIds.every((id) => selectedIdSet.has(id));
+  }, [selectableIds, selectedIdSet]);
+
+  const someSelected = useMemo(() => {
+    if (!selectableIds.length) return false;
+    return selectableIds.some((id) => selectedIdSet.has(id)) && !allSelected;
+  }, [allSelected, selectableIds, selectedIdSet]);
+
+  const headerChecked = useMemo(() => {
+    if (allSelected) return true;
+    if (someSelected) return 'indeterminate';
+    return false;
+  }, [allSelected, someSelected]);
+
+  const toggleSelectAll = useCallback(
+    (checked) => {
+      if (checked === true) {
+        setSelectedIds(selectableIds);
+      } else {
+        setSelectedIds([]);
+      }
+    },
+    [selectableIds],
+  );
+
+  const toggleSelectOne = useCallback((id, checked) => {
+    if (!id) return;
+    setSelectedIds((prev) => {
+      const set = new Set(prev || []);
+      if (checked === true) set.add(id);
+      else set.delete(id);
+      return Array.from(set);
+    });
+  }, []);
 
   const openCreateDialog = useCallback(() => {
     setEditingMachine(null);
@@ -308,6 +345,118 @@ export default function DeviceConfigPage(props) {
     [fetchStatus, toast],
   );
 
+  const handleBatchConnect = useCallback(async () => {
+    if (!selectedIds?.length) {
+      toast({
+        title: '未选择机器',
+        description: '请先勾选要连接的机器',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const idsToConnect = (selectedIds || []).filter((id) => {
+      const s = statusMap.get(id);
+      return s?.active !== true;
+    });
+
+    const skipped = (selectedIds?.length || 0) - idsToConnect.length;
+    if (!idsToConnect.length) {
+      toast({
+        title: '无需连接',
+        description: skipped ? '所选机器均已连接' : '未找到可连接的机器',
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const results = await Promise.allSettled(
+        idsToConnect.map(async (id) => {
+          const response = await deviceConfigApi.connect(id);
+          const body = response?.data;
+          if (!body?.success) {
+            throw new Error(body?.errorMsg || '连接失败');
+          }
+          return true;
+        }),
+      );
+      const successCount = results.filter((r) => r.status === 'fulfilled').length;
+      const failCount = results.length - successCount;
+
+      toast({
+        title: '批量连接已执行',
+        description: `目标：${idsToConnect.length}，成功：${successCount}，失败：${failCount}${skipped ? `，跳过：${skipped}` : ''}`,
+      });
+
+      await fetchStatus();
+    } catch (e) {
+      toast({
+        title: '批量连接失败',
+        description: e instanceof Error ? e.message : '批量连接失败',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [fetchStatus, selectedIds, statusMap, toast]);
+
+  const handleBatchDisconnect = useCallback(async () => {
+    if (!selectedIds?.length) {
+      toast({
+        title: '未选择机器',
+        description: '请先勾选要断开的机器',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const idsToDisconnect = (selectedIds || []).filter((id) => {
+      const s = statusMap.get(id);
+      return s?.active === true;
+    });
+
+    const skipped = (selectedIds?.length || 0) - idsToDisconnect.length;
+    if (!idsToDisconnect.length) {
+      toast({
+        title: '无需断开',
+        description: skipped ? '所选机器均未连接' : '未找到可断开的机器',
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const results = await Promise.allSettled(
+        idsToDisconnect.map(async (id) => {
+          const response = await deviceConfigApi.disconnect(id);
+          const body = response?.data;
+          if (!body?.success) {
+            throw new Error(body?.errorMsg || '断开失败');
+          }
+          return true;
+        }),
+      );
+      const successCount = results.filter((r) => r.status === 'fulfilled').length;
+      const failCount = results.length - successCount;
+
+      toast({
+        title: '批量断开已执行',
+        description: `目标：${idsToDisconnect.length}，成功：${successCount}，失败：${failCount}${skipped ? `，跳过：${skipped}` : ''}`,
+      });
+
+      await fetchStatus();
+    } catch (e) {
+      toast({
+        title: '批量断开失败',
+        description: e instanceof Error ? e.message : '批量断开失败',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [fetchStatus, selectedIds, statusMap, toast]);
+
   const handleDisconnect = useCallback(
     async (id) => {
       if (!id) return;
@@ -344,6 +493,14 @@ export default function DeviceConfigPage(props) {
     [statusMap],
   );
 
+  const renderRowActive = useCallback(
+    (machineId) => {
+      const s = statusMap.get(machineId);
+      return s?.active === true;
+    },
+    [statusMap],
+  );
+
   return (
     <div style={style} className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -371,6 +528,25 @@ export default function DeviceConfigPage(props) {
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">机器列表</span>
               <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleBatchConnect}
+                  disabled={saving || (selectedIds?.length ?? 0) === 0}
+                  className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
+                >
+                  <Plug className="w-4 h-4" />
+                  批量连接
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBatchDisconnect}
+                  disabled={saving || (selectedIds?.length ?? 0) === 0}
+                  className="flex items-center gap-2"
+                >
+                  <Unplug className="w-4 h-4" />
+                  批量断开
+                </Button>
                 <Button variant="outline" onClick={fetchStatus} disabled={saving} className="flex items-center gap-2">
                   <RefreshCw className="w-4 h-4" />
                   刷新状态
@@ -390,14 +566,16 @@ export default function DeviceConfigPage(props) {
               </div>
             ) : (
               <div className="w-full overflow-auto">
-                <Table className="min-w-[900px]">
+                <Table className="min-w-[920px]">
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox checked={headerChecked} onCheckedChange={toggleSelectAll} disabled={!selectableIds.length} />
+                      </TableHead>
                       <TableHead className="w-56">名称</TableHead>
                       <TableHead className="w-28">模式</TableHead>
                       <TableHead className="w-56">Host</TableHead>
                       <TableHead className="w-24">端口</TableHead>
-                      <TableHead className="w-28">状态</TableHead>
                       <TableHead className="w-56">操作</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -412,16 +590,21 @@ export default function DeviceConfigPage(props) {
                       machines.map((m) => {
                         const status = renderRowStatus(m.id);
                         const connected = status === 'CONNECTED';
+                        const active = renderRowActive(m.id);
 
                         return (
                           <TableRow key={m.id} className="hover:bg-gray-50">
+                            <TableCell>
+                              <Checkbox
+                                checked={m?.id ? selectedIdSet.has(m.id) : false}
+                                onCheckedChange={(checked) => toggleSelectOne(m.id, checked)}
+                                disabled={!m?.id}
+                              />
+                            </TableCell>
                             <TableCell className="font-medium">{m.name}</TableCell>
                             <TableCell>{m.mode}</TableCell>
                             <TableCell>{m.host}</TableCell>
                             <TableCell>{m.port}</TableCell>
-                            <TableCell>
-                              <StatusBadge status={status} />
-                            </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <Button variant="outline" size="sm" onClick={() => openEditDialog(m)}>
@@ -430,7 +613,7 @@ export default function DeviceConfigPage(props) {
                                 <Button variant="destructive" size="sm" onClick={() => requestDelete(m)}>
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
-                                {connected ? (
+                                {active ? (
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -439,7 +622,7 @@ export default function DeviceConfigPage(props) {
                                     className="flex items-center gap-2"
                                   >
                                     <Unplug className="w-4 h-4" />
-                                    断开
+                                    {connected ? '断开' : '停止重试'}
                                   </Button>
                                 ) : (
                                   <Button

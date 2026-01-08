@@ -6,7 +6,7 @@ import {
   CardTitle,
   useToast,
 } from '@/components/ui';
-import { FileText, Search, CheckCircle, AlertTriangle, Shield, ArrowRight, Clock, Database, PenTool, Cpu } from 'lucide-react';
+import { FileText, Search, CheckCircle, AlertTriangle, Shield, ArrowRight, Clock, Database, PenTool, Cpu, Wrench } from 'lucide-react';
 import { WorkOrderStats } from '@/components/WorkOrderStats';
 import { AntdTag } from '@/components/AntdTag.jsx';
 import { getUserTypeLabel } from '@/utils/format';
@@ -99,6 +99,14 @@ export default function MainPage(props) {
         icon: Cpu,
         color: 'blue',
         pageId: 'device-config',
+      },
+      {
+        id: 'device-message-inbox',
+        title: '设备消息收件箱',
+        description: '查看接收到的raw消息，补录缺失字段并二次确认',
+        icon: Wrench,
+        color: 'blue',
+        pageId: 'device-message-inbox',
       },
     ];
   }, [statistics]);

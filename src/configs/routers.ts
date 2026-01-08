@@ -6,6 +6,7 @@ import QUERY_COLUMNS from '../pages/query-columns.jsx';
 import STANDARD_MANAGE from '../pages/standard-manage.jsx';
 import SIGNATURE_SETTINGS from '../pages/signature-settings.jsx';
 import DEVICE_CONFIG from '../pages/device-config.jsx';
+import DEVICE_MESSAGE_INBOX from '../pages/device-message-inbox.jsx';
 
 export const routers = [
   {
@@ -40,5 +41,9 @@ export const routers = [
   {
     id: 'device-config',
     component: DEVICE_CONFIG,
+  },
+  {
+    id: 'device-message-inbox',
+    component: DEVICE_MESSAGE_INBOX,
   },
 ];

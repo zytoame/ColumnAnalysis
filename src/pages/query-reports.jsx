@@ -292,41 +292,6 @@ export default function QueryReportsPage(props) {
     [toast]
   );
 
-  const handlePreviewById = useCallback(
-    async (reportId, columnSn) => {
-      try {
-        setPreviewLoading(true);
-        setPreviewError('');
-        setPreviewColumnSn(columnSn || '');
-        const response = await reportApi.previewReportById(reportId);
-
-        const contentType = response?.headers?.['content-type'] || '';
-        if (!contentType.includes('pdf')) {
-          throw new Error('后端返回的不是PDF文件，无法预览');
-        }
-        const blob = new Blob([response.data], { type: 'application/pdf' });
-        const blobUrl = window.URL.createObjectURL(blob);
-
-        setPreviewBlobUrl(blobUrl);
-        setPreviewUrl(blobUrl);
-        setPreviewTitle(`报告预览 - ${columnSn || reportId}`);
-        setPreviewDialogOpen(true);
-      } catch (error) {
-        console.error('获取报告详情失败:', error);
-        console.error('错误详情:', error.response?.data || error.message);
-        setPreviewError(error.response?.data?.message || error.message || '无法加载报告');
-        toast({
-          title: '预览失败',
-          description: error.response?.data?.message || error.message || '无法加载报告',
-          variant: 'destructive',
-        });
-      } finally {
-        setPreviewLoading(false);
-      }
-    },
-    [toast]
-  );
-
   const doGenerateReport = useCallback(
     async (columnSn, mode) => {
       if (!columnSn) return;
@@ -665,10 +630,8 @@ export default function QueryReportsPage(props) {
           <div className="flex flex-col gap-2 pt-2">
             <Button
               variant="outline"
-              disabled={!existenceInfo?.currentReportId}
-              onClick={() =>
-                handlePreviewById(existenceInfo?.currentReportId, generateTarget?.columnSn)
-              }
+              disabled={!generateTarget?.columnSn}
+              onClick={() => handlePreview(generateTarget)}
             >
               预览当前报告
             </Button>
