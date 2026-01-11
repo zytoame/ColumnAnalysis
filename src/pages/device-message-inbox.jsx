@@ -61,7 +61,7 @@ const FIELD_LABELS = {
   mode: '检测模式',
 
   column_sn: '层析柱序列号',
-  pre_column_sn: '上一根层析柱序列号',
+  pre_column_sn: '预处理柱编号',
   second: '秒数',
   inspection_date: '检测日期',
   set_temperature: '设定温度',

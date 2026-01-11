@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   Card,
@@ -18,6 +18,7 @@ import { AntdTag } from '@/components/AntdTag.jsx';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES } from '@/constants';
 import signatureSettingsApi from '@/api/signatureSettings';
+import { SignaturePad } from '@/components/SignaturePad.jsx';
 
 export default function SignatureSettingsPage(props) {
   const { $w, style } = props;
@@ -34,6 +35,15 @@ export default function SignatureSettingsPage(props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState(null);
+
+  const [uploadingEnRole, setUploadingEnRole] = useState('');
+
+  const [signaturePadOpen, setSignaturePadOpen] = useState(false);
+  const [signaturePadRole, setSignaturePadRole] = useState('');
+  const [signaturePadSigning, setSignaturePadSigning] = useState(false);
+
+  const inspectionEnFileRef = useRef(null);
+  const auditEnFileRef = useRef(null);
 
   const [role, setRole] = useState('INSPECTION');
   const [userId, setUserId] = useState('');
@@ -71,6 +81,87 @@ export default function SignatureSettingsPage(props) {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  const handleUploadEnglishSignature = useCallback(async (targetRole, file) => {
+    if (!targetRole) return;
+    if (!file) return;
+    if (file.type && file.type !== 'image/png') {
+      toast({
+        title: '文件格式不正确',
+        description: '请上传PNG格式签名图片',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setUploadingEnRole(targetRole);
+    try {
+      const response = await signatureSettingsApi.uploadEnglishSignature(targetRole, file);
+      const body = response?.data;
+      if (!body?.success) {
+        throw new Error(body?.errorMsg || '上传失败');
+      }
+      toast({
+        title: '上传成功',
+        description: `英文${targetRole === 'INSPECTION' ? '检验员' : '审核员'}签名已更新`,
+      });
+      await fetchSettings();
+    } catch (error) {
+      toast({
+        title: '上传失败',
+        description: error?.message || '上传失败',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingEnRole('');
+      if (inspectionEnFileRef.current) inspectionEnFileRef.current.value = '';
+      if (auditEnFileRef.current) auditEnFileRef.current.value = '';
+    }
+  }, [fetchSettings, toast]);
+
+  const dataUrlToFile = useCallback((dataUrl, fileName) => {
+    if (!dataUrl || typeof dataUrl !== 'string') {
+      throw new Error('签名数据为空');
+    }
+    const parts = dataUrl.split(',');
+    if (parts.length < 2) {
+      throw new Error('签名数据格式不正确');
+    }
+    const header = parts[0];
+    const base64 = parts[1];
+    const mimeMatch = header.match(/data:(.*?);base64/);
+    const mime = mimeMatch?.[1] || 'image/png';
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new File([bytes], fileName, { type: mime });
+  }, []);
+
+  const openSignaturePad = useCallback((targetRole) => {
+    setSignaturePadRole(targetRole);
+    setSignaturePadOpen(true);
+  }, []);
+
+  const handleSignaturePadConfirm = useCallback(async (signatureDataUrl) => {
+    if (!signaturePadRole) return;
+    setSignaturePadSigning(true);
+    try {
+      const file = dataUrlToFile(signatureDataUrl, `${signaturePadRole}_EN.png`);
+      await handleUploadEnglishSignature(signaturePadRole, file);
+      setSignaturePadOpen(false);
+      setSignaturePadRole('');
+    } catch (error) {
+      toast({
+        title: '签名保存失败',
+        description: error?.message || '签名保存失败',
+        variant: 'destructive',
+      });
+    } finally {
+      setSignaturePadSigning(false);
+    }
+  }, [dataUrlToFile, handleUploadEnglishSignature, signaturePadRole, toast]);
 
   const handleSave = useCallback(async () => {
     const trimmed = (userId || '').trim();
@@ -156,6 +247,98 @@ export default function SignatureSettingsPage(props) {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        <SignaturePad
+          isOpen={signaturePadOpen}
+          onClose={() => {
+            if (signaturePadSigning) return;
+            setSignaturePadOpen(false);
+            setSignaturePadRole('');
+          }}
+          onConfirm={handleSignaturePadConfirm}
+          signing={signaturePadSigning}
+        />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>英文签名图片（PNG）</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-md border bg-gray-50 p-4 space-y-3">
+                <div>
+                  <div className="text-sm text-gray-600">检验员英文签名</div>
+                  <div className="mt-1 text-sm text-gray-900 break-all">
+                    {settings?.inspectionSignatureKeyEn ? '已上传' : '未上传'}
+                  </div>
+                </div>
+                <input
+                  ref={inspectionEnFileRef}
+                  type="file"
+                  accept="image/png"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    handleUploadEnglishSignature('INSPECTION', file);
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => inspectionEnFileRef.current?.click()}
+                  disabled={uploadingEnRole === 'INSPECTION' || loading}
+                >
+                  {uploadingEnRole === 'INSPECTION' ? '上传中...' : '上传检验员英文签名'}
+                </Button>
+
+                <Button
+                  onClick={() => openSignaturePad('INSPECTION')}
+                  disabled={uploadingEnRole === 'INSPECTION' || loading}
+                >
+                  手写检验员英文签名
+                </Button>
+              </div>
+
+              <div className="rounded-md border bg-gray-50 p-4 space-y-3">
+                <div>
+                  <div className="text-sm text-gray-600">审核员英文签名</div>
+                  <div className="mt-1 text-sm text-gray-900 break-all">
+                    {settings?.auditSignatureKeyEn ? '已上传' : '未上传'}
+                  </div>
+                </div>
+                <input
+                  ref={auditEnFileRef}
+                  type="file"
+                  accept="image/png"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    handleUploadEnglishSignature('AUDIT', file);
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => auditEnFileRef.current?.click()}
+                  disabled={uploadingEnRole === 'AUDIT' || loading}
+                >
+                  {uploadingEnRole === 'AUDIT' ? '上传中...' : '上传审核员英文签名'}
+                </Button>
+
+                <Button
+                  onClick={() => openSignaturePad('AUDIT')}
+                  disabled={uploadingEnRole === 'AUDIT' || loading}
+                >
+                  手写审核员英文签名
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-3 text-sm text-gray-500">
+              英文报告生成时会强制使用英文签名图片，未上传将直接报错。
+            </div>
           </CardContent>
         </Card>
 

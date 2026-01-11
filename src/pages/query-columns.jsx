@@ -13,6 +13,10 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   Table,
   TableBody,
   TableCell,
@@ -20,13 +24,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui';
-import { ArrowLeft, Search, Database, Loader2 } from 'lucide-react';
+import { ArrowLeft, Search, Database, Loader2, FileText, Trash2 } from 'lucide-react';
 import { BaseSearchFilters } from '@/components/BaseSearchFilters.jsx';
 import { AntdTag, ModeTag, StatusTag } from '@/components/AntdTag.jsx';
 import { generatePageNumbers } from '@/utils/pagination';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES, TEST_TYPES, PAGINATION } from '@/constants';
 import columnApi from '@/api/column';
+import reportApi from '@/api/report';
 
 export default function QueryColumnsPage(props) {
   const { $w, style } = props;
@@ -34,6 +39,15 @@ export default function QueryColumnsPage(props) {
 
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [generateTarget, setGenerateTarget] = useState(null);
+  const [existenceInfo, setExistenceInfo] = useState(null);
+  const [generating, setGenerating] = useState(false);
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [pageNum, setPageNum] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -152,6 +166,89 @@ export default function QueryColumnsPage(props) {
       }
     },
     [toast],
+  );
+
+  const doGenerateReport = useCallback(
+    async (columnSn, mode) => {
+      if (!columnSn) return;
+      setGenerating(true);
+      try {
+        await reportApi.generateReport(columnSn, mode);
+        toast({
+          title: '生成成功',
+          description: `报告 ${columnSn} 已生成`,
+        });
+        await fetchColumns(pageNum, appliedSearchParams);
+        setGenerateDialogOpen(false);
+        setExistenceInfo(null);
+        setGenerateTarget(null);
+      } catch (error) {
+        console.error('生成报告失败:', error);
+        toast({
+          title: '生成失败',
+          description: error?.response?.data?.message || error?.message || '无法生成报告',
+          variant: 'destructive',
+        });
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [appliedSearchParams, fetchColumns, pageNum, toast],
+  );
+
+  const handleGenerate = useCallback(
+    async (column) => {
+      try {
+        const columnSn = column?.columnSn;
+        if (!columnSn) return;
+        setGenerateTarget(column);
+        const info = await reportApi.checkReportExistence(columnSn);
+        if (info?.exists) {
+          setExistenceInfo(info);
+          setGenerateDialogOpen(true);
+          return;
+        }
+        await doGenerateReport(columnSn, 'BACKUP_OVERWRITE');
+      } catch (error) {
+        console.error('检查报告失败:', error);
+        toast({
+          title: '操作失败',
+          description: error?.response?.data?.message || error?.message || '无法检查报告状态',
+          variant: 'destructive',
+        });
+      }
+    },
+    [doGenerateReport, toast],
+  );
+
+  const doDeleteColumn = useCallback(
+    async (columnSn, deleteMode) => {
+      if (!columnSn) return;
+      setDeleting(true);
+      try {
+        const res = await columnApi.deleteByColumnSn(columnSn, deleteMode);
+        if (res?.success === false) {
+          throw new Error(res?.errorMsg || '删除失败');
+        }
+        toast({
+          title: '删除成功',
+          description: `已删除柱子 ${columnSn} 相关数据`,
+        });
+        await fetchColumns(pageNum, appliedSearchParams);
+        setDeleteDialogOpen(false);
+        setDeleteTarget(null);
+      } catch (error) {
+        console.error('删除失败:', error);
+        toast({
+          title: '删除失败',
+          description: error?.response?.data?.message || error?.message || '无法删除',
+          variant: 'destructive',
+        });
+      } finally {
+        setDeleting(false);
+      }
+    },
+    [appliedSearchParams, fetchColumns, pageNum, toast],
   );
 
   const handleSearch = useCallback(async () => {
@@ -328,12 +425,13 @@ export default function QueryColumnsPage(props) {
                       <TableHead className="w-24 whitespace-nowrap text-right">出峰时间</TableHead>
                       <TableHead className="w-20 whitespace-nowrap text-right">CV值</TableHead>
                       <TableHead className="w-[280px] whitespace-nowrap">建议</TableHead>
+                      <TableHead className="w-[220px] whitespace-nowrap">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {columns.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={15} className="text-center">
+                        <TableCell colSpan={16} className="text-center">
                           暂无数据
                         </TableCell>
                       </TableRow>
@@ -361,6 +459,31 @@ export default function QueryColumnsPage(props) {
                           <TableCell className="truncate" title={c.suggestion || ''}>
                             {c.suggestion || '-'}
                           </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2 justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleGenerate(c)}
+                                disabled={generating}
+                              >
+                                <FileText className="w-4 h-4 mr-1" />
+                                生成报告
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => {
+                                  setDeleteTarget(c);
+                                  setDeleteDialogOpen(true);
+                                }}
+                                disabled={deleting}
+                              >
+                                <Trash2 className="w-4 h-4 mr-1" />
+                                删除
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))
                     )}
@@ -370,6 +493,119 @@ export default function QueryColumnsPage(props) {
             )}
           </CardContent>
         </Card>
+
+        <Dialog
+          open={generateDialogOpen}
+          onOpenChange={(open) => {
+            if (generating) return;
+            setGenerateDialogOpen(open);
+            if (!open) {
+              setExistenceInfo(null);
+              setGenerateTarget(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>报告已存在</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm text-gray-600">
+              <div>
+                当前层析柱：<span className="font-medium text-gray-900">{generateTarget?.columnSn}</span>
+              </div>
+              <div>
+                当前报告ID：<span className="font-medium text-gray-900">{existenceInfo?.currentReportId}</span>
+              </div>
+              <div>
+                历史备份数量：<span className="font-medium text-gray-900">{existenceInfo?.backupCount ?? 0}</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                onClick={() => doGenerateReport(generateTarget?.columnSn, 'BACKUP_OVERWRITE')}
+                disabled={generating}
+              >
+                {generating ? '处理中...' : '备份后覆盖（推荐）'}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => doGenerateReport(generateTarget?.columnSn, 'OVERWRITE_ONLY')}
+                disabled={generating}
+              >
+                仅覆盖最新（不备份）
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  const ok = window.confirm('确认清空所有历史备份后再覆盖生成？该操作不可恢复。');
+                  if (!ok) return;
+                  doGenerateReport(generateTarget?.columnSn, 'PURGE_AND_OVERWRITE');
+                }}
+                disabled={generating}
+              >
+                清空历史后覆盖（危险）
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setGenerateDialogOpen(false)}
+                disabled={generating}
+              >
+                取消
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={deleteDialogOpen}
+          onOpenChange={(open) => {
+            if (deleting) return;
+            setDeleteDialogOpen(open);
+            if (!open) {
+              setDeleteTarget(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>确认删除</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 text-sm text-gray-600">
+              <div>
+                目标层析柱：<span className="font-medium text-gray-900">{deleteTarget?.columnSn}</span>
+              </div>
+              <div className="text-gray-500">
+                注意：不会删除日志表（device_message_*）。
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                onClick={() => doDeleteColumn(deleteTarget?.columnSn, 'ONLY_COLUMN')}
+                disabled={deleting}
+              >
+                {deleting ? '处理中...' : '仅删除柱子记录（保留报告）'}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  const ok = window.confirm('确认删除该柱子所有相关数据（包括报告与文件）？该操作不可恢复。');
+                  if (!ok) return;
+                  doDeleteColumn(deleteTarget?.columnSn, 'ALL_WITH_REPORT');
+                }}
+                disabled={deleting}
+              >
+                删除全部相关数据（含报告）
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteDialogOpen(false)}
+                disabled={deleting}
+              >
+                取消
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {total > 0 && <div className="mt-4">{renderPagination}</div>}
       </div>

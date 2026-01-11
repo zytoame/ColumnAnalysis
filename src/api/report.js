@@ -11,10 +11,6 @@ const reportApi = {
   checkReportExistence: (columnSn) =>
     axios.get(`${API_BASE_URL}/report/existence`, { params: { columnSn } }).then((response) => response.data),
 
-  // 批量生成
-  generateBatchReports: (columnSns) =>
-    axios.post(`${API_BASE_URL}/report/generate-batch`, columnSns, { responseType: 'blob' }),
-
   // 批量生成（仅生成不下载）
   generateBatchReportsOnly: (columnSns) =>
     axios.post(`${API_BASE_URL}/report/generate-batch-only`, columnSns).then((response) => response.data),

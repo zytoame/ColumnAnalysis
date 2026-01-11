@@ -58,6 +58,12 @@ const columnApi = {
   // 更新层析柱数据并验证
   updateColumnData: (request) =>
     axios.post(`${API_BASE_URL}/column/update-column-data`, request),
+
+  // 删除层析柱相关数据（支持两种模式）
+  deleteByColumnSn: (columnSn, deleteMode = 'ONLY_COLUMN') =>
+    axios.delete(`${API_BASE_URL}/column/${columnSn}`, {
+      params: { deleteMode },
+    }).then((response) => response.data),
 };
 
 export default columnApi;
