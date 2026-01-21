@@ -26,42 +26,40 @@ export function BatchAuditTable({
               type="checkbox"
               checked={
                 columns.length > 0 &&
-                columns.every((column) => selectedColumns.includes(column.columnSn))
+                columns.every((column) => selectedColumns.includes(column.productSn))
               }
               onChange={(e) => onSelectAll(e.target.checked)}
               className="rounded border-gray-300"
             />
           </TableHead>
-          <TableHead>层析柱序列号</TableHead>
+          <TableHead>自编序列号</TableHead>
+          <TableHead>成品序列号</TableHead>
           <TableHead>工单号</TableHead>
-          <TableHead>订单号</TableHead>
           <TableHead>仪器序列号</TableHead>
           <TableHead>检测模式</TableHead>
-          <TableHead>成品序列号</TableHead>
           <TableHead>检测日期</TableHead>
           <TableHead>操作</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {columns.map((column) => (
-          <React.Fragment key={column.columnSn}>
+          <React.Fragment key={column.productSn || column.columnSn}>
             <TableRow className="hover:bg-gray-50">
               <TableCell>
                 <input
                   type="checkbox"
-                  checked={selectedColumns.includes(column.columnSn)}
-                  onChange={() => onSelectColumn(column.columnSn)}
+                  checked={selectedColumns.includes(column.productSn)}
+                  onChange={() => onSelectColumn(column.productSn)}
                   className="rounded border-gray-300"
                 />
               </TableCell>
               <TableCell className="font-medium">{column.columnSn}</TableCell>
+              <TableCell>{column.productSn || '-'}</TableCell>
               <TableCell>{column.aufnr}</TableCell>
-              <TableCell>{column.vbeln}</TableCell>
               <TableCell>{column.deviceSn}</TableCell>
               <TableCell>
                 <ModeTag mode={column.mode} />
               </TableCell>
-              <TableCell>{column.preprocessColumnSn || '-'}</TableCell>
               <TableCell>{column.inspectionDate || '-'}</TableCell>
               <TableCell>
                 <div className="flex space-x-1">
@@ -94,7 +92,7 @@ export function BatchAuditTable({
             {/* 展开的检测数据行 */}
             {expandedRows.includes(column.columnSn) && (
               <TableRow>
-                <TableCell colSpan={8} className="bg-gray-50 p-4">
+                <TableCell colSpan={7} className="bg-gray-50 p-4">
                   <DetectionDataCard
                     detectionData={column.detectionData || {}}
                     finalConclusion={column.finalConclusion}

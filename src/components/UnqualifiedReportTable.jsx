@@ -28,13 +28,13 @@ export function UnqualifiedReportTable({
               className="rounded border-gray-300"
             />
           </TableHead>
-          <TableHead>层析柱序列号</TableHead>
+          <TableHead className="w-40 whitespace-nowrap">自编序列号</TableHead>
           <TableHead>工单号</TableHead>
-          <TableHead>订单号</TableHead>
           <TableHead>仪器序列号</TableHead>
           <TableHead>检测模式</TableHead>
-          <TableHead>预处理柱编号</TableHead>
+          <TableHead className="w-24 whitespace-nowrap">预处理柱编号</TableHead>
           <TableHead>检测日期</TableHead>
+          <TableHead className="w-[320px]">建议</TableHead>
           <TableHead>操作</TableHead>
         </TableRow>
       </TableHeader>
@@ -52,13 +52,15 @@ export function UnqualifiedReportTable({
               </TableCell>
               <TableCell className="font-medium">{report.columnSn}</TableCell>
               <TableCell>{report.aufnr}</TableCell>
-              <TableCell>{report.vbeln}</TableCell>
               <TableCell>{report.deviceSn}</TableCell>
               <TableCell>
                 <ModeTag mode={report.mode} />
               </TableCell>
-              <TableCell>{report.preprocessColumnSn || '-'}</TableCell>
+              <TableCell className="whitespace-nowrap truncate">{report.preprocessColumnSn || '-'}</TableCell>
               <TableCell>{report.inspectionDate || '-'}</TableCell>
+              <TableCell className="max-w-[320px] truncate" title={report.suggestion || ''}>
+                {report.suggestion || '-'}
+              </TableCell>
               <TableCell>
                 <div className="flex space-x-1">
                   <Button

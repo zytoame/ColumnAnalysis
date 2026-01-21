@@ -36,8 +36,8 @@ export default function UnqualifiedReportsPage(props) {
   // 搜索条件
   const [searchParams, setSearchParams] = useState({
     aufnr: '',
+    productSn: '',
     columnSn: '',
-    vbeln: '',
     deviceSn: '',
     mode: TEST_TYPES.ALL,
     dateRange: DATE_RANGES.ALL,
@@ -66,11 +66,11 @@ export default function UnqualifiedReportsPage(props) {
     return {
       ...c,
       id: c?.columnSn,
+      suggestion: c?.suggestion,
       finalConclusion: CONCLUSION_STATUS.UNQUALIFIED,
       testResult: '不合格',
       testType: c?.mode,
       workOrder: c?.aufnr,
-      orderNumber: c?.vbeln,
       instrumentSerial: c?.deviceSn,
       testDate: c?.inspectionDate,
       submitTime: c?.createdAt,
@@ -216,6 +216,13 @@ export default function UnqualifiedReportsPage(props) {
         status: '不合格',
         mode: searchParams.mode === TEST_TYPES.ALL ? '' : searchParams.mode,
       };
+
+      if (!params.productSn) {
+        delete params.productSn;
+      }
+      if (!params.columnSn) {
+        delete params.columnSn;
+      }
       const response = await columnApi.advancedSearch(params, 1, PAGINATION.DEFAULT_PAGE_SIZE);
       const records = (response.records || []).map(mapColumnToUi);
       setFilteredColumns(records);
@@ -243,8 +250,8 @@ export default function UnqualifiedReportsPage(props) {
   const handleReset = useCallback(() => {
     setSearchParams({
       aufnr: '',
+      productSn: '',
       columnSn: '',
-      vbeln: '',
       deviceSn: '',
       mode: TEST_TYPES.ALL,
       dateRange: DATE_RANGES.ALL,

@@ -16,12 +16,16 @@ const reportApi = {
     axios.post(`${API_BASE_URL}/report/generate-batch-only`, columnSns).then((response) => response.data),
 
   // 异步任务：批量生成（仅生成不下载）
-  submitGenerateOnlyTask: (columnSns) =>
-    axios.post(`${API_BASE_URL}/report/tasks/generate`, columnSns).then((response) => response.data),
+  submitGenerateOnlyTask: (columnSns, mode) => {
+    const body = mode ? { columnSns, mode } : columnSns;
+    return axios.post(`${API_BASE_URL}/report/tasks/generate`, body).then((response) => response.data);
+  },
 
   // 异步任务：批量生成并打包ZIP
-  submitGenerateZipTask: (columnSns) =>
-    axios.post(`${API_BASE_URL}/report/tasks/generate-zip`, columnSns).then((response) => response.data),
+  submitGenerateZipTask: (columnSns, mode) => {
+    const body = mode ? { columnSns, mode } : columnSns;
+    return axios.post(`${API_BASE_URL}/report/tasks/generate-zip`, body).then((response) => response.data);
+  },
 
   // 异步任务：查询任务状态
   getTask: (taskId) =>

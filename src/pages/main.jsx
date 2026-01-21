@@ -40,9 +40,9 @@ export default function MainPage(props) {
         description: '管理和编辑不合格的层析柱检测数据',
         icon: AlertTriangle,
         color: 'red',
-        stats: {
-          total: statistics.unqualifiedReports,
-        },
+        // stats: {
+        //   total: statistics.unqualifiedReports,
+        // },
         pageId: 'unqualified-reports',
       },
       {
@@ -51,10 +51,10 @@ export default function MainPage(props) {
         description: '批量审核待审核的层析柱',
         icon: CheckCircle,
         color: 'green',
-        stats: {
-          pending: statistics.pendingReports,
-          completed: statistics.approvedReports,
-        },
+        // stats: {
+        //   pending: statistics.pendingReports,
+        //   completed: statistics.approvedReports,
+        // },
         pageId: 'batch-audit',
       },
       {
@@ -108,34 +108,19 @@ export default function MainPage(props) {
         color: 'blue',
         pageId: 'device-message-inbox',
       },
+      {
+        id: 'sn-mapping-manage',
+        title: 'SN映射管理',
+        description: '上传Excel导入成品序列号与自编序列号映射',
+        icon: Database,
+        color: 'blue',
+        pageId: 'sn-mapping-manage',
+      },
     ];
   }, [statistics]);
 
-  // TODO: 从后端获取最近活动记录
-  // 需要调用接口获取用户的操作历史
   const fetchRecentActivities = useCallback(async () => {
-    try {
-      // TODO: 替换为实际的数据源调用
-      // const result = await $w.cloud.callDataSource({
-      //   dataSourceName: 'audit_records',
-      //   methodName: 'wedaGetRecordsV2',
-      //   params: {
-      //     filter: {
-      //       where: {
-      //         $and: [
-      //           { createBy: { $eq-current-user: true } }
-      //         ]
-      //       }
-      //     },
-      //     orderBy: [{ createdAt: 'desc' }],
-      //     select: { $master: true },
-      //     pageSize: 10
-      //   }
-      // });
-      // setRecentActivities(result.records);
-    } catch (error) {
-      console.error('获取最近活动失败:', error);
-    }
+    setRecentActivities([]);
   }, []);
 
   const fetchStatistics = useCallback(async () => {
@@ -269,7 +254,7 @@ export default function MainPage(props) {
         <WorkOrderStats />
 
         {/* 最近活动 */}
-        <Card className="mt-6">
+        {/* <Card className="mt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="w-5 h-5" />
@@ -308,7 +293,7 @@ export default function MainPage(props) {
               )}
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
     </div>
   );

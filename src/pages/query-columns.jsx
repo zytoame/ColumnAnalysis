@@ -5,6 +5,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Checkbox,
   useToast,
   Pagination,
   PaginationContent,
@@ -40,14 +41,12 @@ export default function QueryColumnsPage(props) {
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
-  const [generateTarget, setGenerateTarget] = useState(null);
-  const [existenceInfo, setExistenceInfo] = useState(null);
   const [generating, setGenerating] = useState(false);
 
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [batchGenerateDialogOpen, setBatchGenerateDialogOpen] = useState(false);
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
+  const [selectedColumnSns, setSelectedColumnSns] = useState([]);
 
   const [pageNum, setPageNum] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -56,7 +55,6 @@ export default function QueryColumnsPage(props) {
   const [draftSearchParams, setDraftSearchParams] = useState({
     aufnr: '',
     columnSn: '',
-    vbeln: '',
     deviceSn: '',
     mode: TEST_TYPES.ALL,
     status: 'all',
@@ -65,7 +63,6 @@ export default function QueryColumnsPage(props) {
   const [appliedSearchParams, setAppliedSearchParams] = useState({
     aufnr: '',
     columnSn: '',
-    vbeln: '',
     deviceSn: '',
     mode: TEST_TYPES.ALL,
     status: 'all',
@@ -92,12 +89,6 @@ export default function QueryColumnsPage(props) {
         name: 'columnSn',
         label: '层析柱序列号',
         placeholder: '请输入层析柱序列号',
-      },
-      {
-        type: 'input',
-        name: 'vbeln',
-        label: '订单号',
-        placeholder: '请输入订单号',
       },
       {
         type: 'input',
@@ -168,92 +159,152 @@ export default function QueryColumnsPage(props) {
     [toast],
   );
 
-  const doGenerateReport = useCallback(
-    async (columnSn, mode) => {
-      if (!columnSn) return;
+  const currentPageColumnSns = useMemo(
+    () => (columns || []).map((c) => c?.columnSn).filter(Boolean),
+    [columns],
+  );
+
+  const currentPageSelection = useMemo(() => {
+    const selectedSet = new Set(selectedColumnSns);
+    const total = currentPageColumnSns.length;
+    const selectedOnPage = currentPageColumnSns.filter((sn) => selectedSet.has(sn)).length;
+    return {
+      total,
+      selectedOnPage,
+      allChecked: total > 0 && selectedOnPage === total,
+      indeterminate: selectedOnPage > 0 && selectedOnPage < total,
+    };
+  }, [currentPageColumnSns, selectedColumnSns]);
+
+  const handleToggleSelectAllCurrentPage = useCallback(
+    (checked) => {
+      const shouldSelect = checked === true;
+      setSelectedColumnSns((prev) => {
+        const set = new Set(prev);
+        if (shouldSelect) {
+          currentPageColumnSns.forEach((sn) => set.add(sn));
+        } else {
+          currentPageColumnSns.forEach((sn) => set.delete(sn));
+        }
+        return Array.from(set);
+      });
+    },
+    [currentPageColumnSns],
+  );
+
+  const handleToggleSelectOne = useCallback((columnSn, checked) => {
+    if (!columnSn) return;
+    const shouldSelect = checked === true;
+    setSelectedColumnSns((prev) => {
+      const set = new Set(prev);
+      if (shouldSelect) {
+        set.add(columnSn);
+      } else {
+        set.delete(columnSn);
+      }
+      return Array.from(set);
+    });
+  }, []);
+
+  const doBatchGenerateReport = useCallback(
+    async (mode) => {
+      if ((selectedColumnSns || []).length === 0) return;
       setGenerating(true);
       try {
-        await reportApi.generateReport(columnSn, mode);
+        const submitRes = await reportApi.submitGenerateOnlyTask(selectedColumnSns, mode);
+        const taskId = submitRes?.taskId;
+        if (!taskId) {
+          throw new Error('未获取到任务ID');
+        }
+
+        const startedAt = Date.now();
+        let task;
+        while (true) {
+          task = await reportApi.getTask(taskId);
+          if (task?.status === 'FAILED' || task?.status === 'SUCCESS') {
+            break;
+          }
+          if (Date.now() - startedAt > 15 * 60 * 1000) {
+            throw new Error('生成超时，请稍后在列表中刷新确认');
+          }
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+
+        const successCount = task?.success ?? 0;
+        const failCount = task?.fail ?? 0;
         toast({
-          title: '生成成功',
-          description: `报告 ${columnSn} 已生成`,
+          title: '批量生成完成',
+          description: `成功 ${successCount} 条，失败 ${failCount} 条`,
+          variant: failCount > 0 ? 'destructive' : undefined,
         });
+
         await fetchColumns(pageNum, appliedSearchParams);
-        setGenerateDialogOpen(false);
-        setExistenceInfo(null);
-        setGenerateTarget(null);
+        setSelectedColumnSns([]);
+        setBatchGenerateDialogOpen(false);
       } catch (error) {
-        console.error('生成报告失败:', error);
+        console.error('批量生成失败:', error);
         toast({
-          title: '生成失败',
-          description: error?.response?.data?.message || error?.message || '无法生成报告',
+          title: '批量生成失败',
+          description: error?.response?.data?.message || error?.message || '无法批量生成报告',
           variant: 'destructive',
         });
       } finally {
         setGenerating(false);
       }
     },
-    [appliedSearchParams, fetchColumns, pageNum, toast],
+    [appliedSearchParams, fetchColumns, pageNum, selectedColumnSns, toast],
   );
 
-  const handleGenerate = useCallback(
-    async (column) => {
-      try {
-        const columnSn = column?.columnSn;
-        if (!columnSn) return;
-        setGenerateTarget(column);
-        const info = await reportApi.checkReportExistence(columnSn);
-        if (info?.exists) {
-          setExistenceInfo(info);
-          setGenerateDialogOpen(true);
-          return;
-        }
-        await doGenerateReport(columnSn, 'BACKUP_OVERWRITE');
-      } catch (error) {
-        console.error('检查报告失败:', error);
-        toast({
-          title: '操作失败',
-          description: error?.response?.data?.message || error?.message || '无法检查报告状态',
-          variant: 'destructive',
-        });
-      }
-    },
-    [doGenerateReport, toast],
-  );
-
-  const doDeleteColumn = useCallback(
-    async (columnSn, deleteMode) => {
-      if (!columnSn) return;
+  const doBatchDelete = useCallback(
+    async (deleteMode) => {
+      if ((selectedColumnSns || []).length === 0) return;
       setDeleting(true);
       try {
-        const res = await columnApi.deleteByColumnSn(columnSn, deleteMode);
-        if (res?.success === false) {
-          throw new Error(res?.errorMsg || '删除失败');
+        let successCount = 0;
+        let failCount = 0;
+        const failed = {};
+
+        for (const columnSn of selectedColumnSns) {
+          try {
+            const res = await columnApi.deleteByColumnSn(columnSn, deleteMode);
+            if (res?.success === false) {
+              throw new Error(res?.errorMsg || '删除失败');
+            }
+            successCount++;
+          } catch (error) {
+            failCount++;
+            failed[columnSn] =
+              error?.response?.data?.message || error?.message || '无法删除';
+          }
         }
+
         toast({
-          title: '删除成功',
-          description: `已删除柱子 ${columnSn} 相关数据`,
+          title: '批量删除完成',
+          description: `成功 ${successCount} 条，失败 ${failCount} 条`,
+          variant: failCount > 0 ? 'destructive' : undefined,
         });
+
         await fetchColumns(pageNum, appliedSearchParams);
-        setDeleteDialogOpen(false);
-        setDeleteTarget(null);
+        setSelectedColumnSns([]);
+        setBatchDeleteDialogOpen(false);
       } catch (error) {
-        console.error('删除失败:', error);
+        console.error('批量删除失败:', error);
         toast({
-          title: '删除失败',
-          description: error?.response?.data?.message || error?.message || '无法删除',
+          title: '批量删除失败',
+          description: error?.response?.data?.message || error?.message || '无法批量删除',
           variant: 'destructive',
         });
       } finally {
         setDeleting(false);
       }
     },
-    [appliedSearchParams, fetchColumns, pageNum, toast],
+    [appliedSearchParams, fetchColumns, pageNum, selectedColumnSns, toast],
   );
 
   const handleSearch = useCallback(async () => {
     try {
       setAppliedSearchParams(draftSearchParams);
+      setSelectedColumnSns([]);
       const response = await fetchColumns(1, draftSearchParams);
       toast({
         title: '查询完成',
@@ -273,13 +324,13 @@ export default function QueryColumnsPage(props) {
     const resetValues = {
       aufnr: '',
       columnSn: '',
-      vbeln: '',
       deviceSn: '',
       mode: TEST_TYPES.ALL,
       status: 'all',
     };
     setDraftSearchParams(resetValues);
     setAppliedSearchParams(resetValues);
+    setSelectedColumnSns([]);
     fetchColumns(1, resetValues);
   }, [fetchColumns]);
 
@@ -396,7 +447,28 @@ export default function QueryColumnsPage(props) {
                 <Search className="w-5 h-5" />
                 柱子列表
               </span>
-              <div className="text-sm text-gray-500">当前页显示 {columns.length} 条，共 {total} 条</div>
+              <div className="flex items-center gap-2">
+                <div className="text-sm text-gray-500">当前页显示 {columns.length} 条，共 {total} 条</div>
+                <div className="text-sm text-gray-500">已选择 {selectedColumnSns.length} 条</div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setBatchGenerateDialogOpen(true)}
+                  disabled={selectedColumnSns.length === 0 || generating || deleting}
+                >
+                  <FileText className="w-4 h-4 mr-1" />
+                  批量生成报告
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setBatchDeleteDialogOpen(true)}
+                  disabled={selectedColumnSns.length === 0 || deleting || generating}
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  批量删除
+                </Button>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -410,9 +482,21 @@ export default function QueryColumnsPage(props) {
                 <Table className="table-fixed min-w-[1400px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-40 whitespace-nowrap">层析柱序列号</TableHead>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={
+                            currentPageSelection.allChecked
+                              ? true
+                              : currentPageSelection.indeterminate
+                              ? 'indeterminate'
+                              : false
+                          }
+                          onCheckedChange={handleToggleSelectAllCurrentPage}
+                          disabled={currentPageSelection.total === 0}
+                        />
+                      </TableHead>
+                      <TableHead className="w-40 whitespace-nowrap">成品序列号</TableHead>
                       <TableHead className="w-32 whitespace-nowrap">工单号</TableHead>
-                      <TableHead className="w-32 whitespace-nowrap">订单号</TableHead>
                       <TableHead className="w-32 whitespace-nowrap">仪器序列号</TableHead>
                       <TableHead className="w-24 whitespace-nowrap">检测模式</TableHead>
                       <TableHead className="w-24 whitespace-nowrap">状态</TableHead>
@@ -424,23 +508,26 @@ export default function QueryColumnsPage(props) {
                       <TableHead className="w-24 whitespace-nowrap text-right">系统压力</TableHead>
                       <TableHead className="w-24 whitespace-nowrap text-right">出峰时间</TableHead>
                       <TableHead className="w-20 whitespace-nowrap text-right">CV值</TableHead>
-                      <TableHead className="w-[280px] whitespace-nowrap">建议</TableHead>
-                      <TableHead className="w-[220px] whitespace-nowrap">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {columns.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={16} className="text-center">
+                        <TableCell colSpan={14} className="text-center">
                           暂无数据
                         </TableCell>
                       </TableRow>
                     ) : (
                       columns.map((c) => (
                         <TableRow key={c.columnSn} className="hover:bg-gray-50">
-                          <TableCell className="font-medium whitespace-nowrap truncate">{c.columnSn}</TableCell>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedColumnSns.includes(c.columnSn)}
+                              onCheckedChange={(checked) => handleToggleSelectOne(c.columnSn, checked)}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium whitespace-nowrap truncate">{c.productSn || '-'}</TableCell>
                           <TableCell className="whitespace-nowrap truncate">{c.aufnr || '-'}</TableCell>
-                          <TableCell className="whitespace-nowrap truncate">{c.vbeln || '-'}</TableCell>
                           <TableCell className="whitespace-nowrap truncate">{c.deviceSn || '-'}</TableCell>
                           <TableCell>
                             <ModeTag mode={c.mode} />
@@ -456,34 +543,6 @@ export default function QueryColumnsPage(props) {
                           <TableCell className="whitespace-nowrap text-right">{c.pressure ?? '-'}</TableCell>
                           <TableCell className="whitespace-nowrap text-right">{c.peakTime ?? '-'}</TableCell>
                           <TableCell className="whitespace-nowrap text-right">{c.cvValue ?? '-'}</TableCell>
-                          <TableCell className="truncate" title={c.suggestion || ''}>
-                            {c.suggestion || '-'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2 justify-end">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleGenerate(c)}
-                                disabled={generating}
-                              >
-                                <FileText className="w-4 h-4 mr-1" />
-                                生成报告
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => {
-                                  setDeleteTarget(c);
-                                  setDeleteDialogOpen(true);
-                                }}
-                                disabled={deleting}
-                              >
-                                <Trash2 className="w-4 h-4 mr-1" />
-                                删除
-                              </Button>
-                            </div>
-                          </TableCell>
                         </TableRow>
                       ))
                     )}
@@ -495,43 +554,26 @@ export default function QueryColumnsPage(props) {
         </Card>
 
         <Dialog
-          open={generateDialogOpen}
+          open={batchGenerateDialogOpen}
           onOpenChange={(open) => {
             if (generating) return;
-            setGenerateDialogOpen(open);
-            if (!open) {
-              setExistenceInfo(null);
-              setGenerateTarget(null);
-            }
+            setBatchGenerateDialogOpen(open);
           }}
         >
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>报告已存在</DialogTitle>
+              <DialogTitle>批量生成报告</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 text-sm text-gray-600">
               <div>
-                当前层析柱：<span className="font-medium text-gray-900">{generateTarget?.columnSn}</span>
-              </div>
-              <div>
-                当前报告ID：<span className="font-medium text-gray-900">{existenceInfo?.currentReportId}</span>
-              </div>
-              <div>
-                历史备份数量：<span className="font-medium text-gray-900">{existenceInfo?.backupCount ?? 0}</span>
+                选中层析柱：<span className="font-medium text-gray-900">{selectedColumnSns.length}</span> 条
               </div>
             </div>
             <div className="flex flex-col gap-2 pt-2">
-              <Button
-                onClick={() => doGenerateReport(generateTarget?.columnSn, 'BACKUP_OVERWRITE')}
-                disabled={generating}
-              >
-                {generating ? '处理中...' : '备份后覆盖（推荐）'}
+              <Button onClick={() => doBatchGenerateReport('BACKUP_OVERWRITE')} disabled={generating}>
+                备份后覆盖（推荐）
               </Button>
-              <Button
-                variant="secondary"
-                onClick={() => doGenerateReport(generateTarget?.columnSn, 'OVERWRITE_ONLY')}
-                disabled={generating}
-              >
+              <Button variant="secondary" onClick={() => doBatchGenerateReport('OVERWRITE_ONLY')} disabled={generating}>
                 仅覆盖最新（不备份）
               </Button>
               <Button
@@ -539,7 +581,7 @@ export default function QueryColumnsPage(props) {
                 onClick={() => {
                   const ok = window.confirm('确认清空所有历史备份后再覆盖生成？该操作不可恢复。');
                   if (!ok) return;
-                  doGenerateReport(generateTarget?.columnSn, 'PURGE_AND_OVERWRITE');
+                  doBatchGenerateReport('PURGE_AND_OVERWRITE');
                 }}
                 disabled={generating}
               >
@@ -547,7 +589,7 @@ export default function QueryColumnsPage(props) {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => setGenerateDialogOpen(false)}
+                onClick={() => setBatchGenerateDialogOpen(false)}
                 disabled={generating}
               >
                 取消
@@ -557,40 +599,32 @@ export default function QueryColumnsPage(props) {
         </Dialog>
 
         <Dialog
-          open={deleteDialogOpen}
+          open={batchDeleteDialogOpen}
           onOpenChange={(open) => {
             if (deleting) return;
-            setDeleteDialogOpen(open);
-            if (!open) {
-              setDeleteTarget(null);
-            }
+            setBatchDeleteDialogOpen(open);
           }}
         >
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>确认删除</DialogTitle>
+              <DialogTitle>批量删除</DialogTitle>
             </DialogHeader>
             <div className="space-y-2 text-sm text-gray-600">
               <div>
-                目标层析柱：<span className="font-medium text-gray-900">{deleteTarget?.columnSn}</span>
+                已选择：<span className="font-medium text-gray-900">{selectedColumnSns.length}</span> 条
               </div>
-              <div className="text-gray-500">
-                注意：不会删除日志表（device_message_*）。
-              </div>
+              <div className="text-gray-500">注意：不会删除日志表（device_message_*）。</div>
             </div>
             <div className="flex flex-col gap-2 pt-2">
-              <Button
-                onClick={() => doDeleteColumn(deleteTarget?.columnSn, 'ONLY_COLUMN')}
-                disabled={deleting}
-              >
+              <Button onClick={() => doBatchDelete('ONLY_COLUMN')} disabled={deleting}>
                 {deleting ? '处理中...' : '仅删除柱子记录（保留报告）'}
               </Button>
               <Button
                 variant="destructive"
                 onClick={() => {
-                  const ok = window.confirm('确认删除该柱子所有相关数据（包括报告与文件）？该操作不可恢复。');
+                  const ok = window.confirm('确认删除所选柱子全部相关数据（包括报告与文件）？该操作不可恢复。');
                   if (!ok) return;
-                  doDeleteColumn(deleteTarget?.columnSn, 'ALL_WITH_REPORT');
+                  doBatchDelete('ALL_WITH_REPORT');
                 }}
                 disabled={deleting}
               >
@@ -598,7 +632,7 @@ export default function QueryColumnsPage(props) {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => setDeleteDialogOpen(false)}
+                onClick={() => setBatchDeleteDialogOpen(false)}
                 disabled={deleting}
               >
                 取消

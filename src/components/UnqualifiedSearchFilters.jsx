@@ -12,7 +12,12 @@ export function UnqualifiedSearchFilters({
   loading,
 }) {
   const fields = [
-    
+    {
+      type: 'input',
+      name: 'productSn',
+      label: '成品序列号',
+      placeholder: '请输入成品序列号',
+    },
     {
       type: 'input',
       name: 'columnSn',

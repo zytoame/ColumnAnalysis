@@ -50,7 +50,7 @@ export default function BatchAuditPage(props) {
   // 搜索条件
   const [searchParams, setSearchParams] = useState({
     aufnr: '',
-    columnSn: '',
+    productSn: '',
     vbeln: '',
     deviceSn: '',
     mode: TEST_TYPES.ALL,
@@ -73,7 +73,7 @@ export default function BatchAuditPage(props) {
     const finalConclusion = c?.status === '合格' ? CONCLUSION_STATUS.QUALIFIED : CONCLUSION_STATUS.UNQUALIFIED;
     return {
       ...c,
-      id: c?.columnSn,
+      id: c?.productSn,
       finalConclusion,
       detectionData: {
         setTemperature: {
@@ -221,6 +221,10 @@ export default function BatchAuditPage(props) {
         mode: searchParams.mode === TEST_TYPES.ALL ? '' : searchParams.mode,
       };
 
+      if (!params.productSn) {
+        delete params.productSn;
+      }
+
       const response = await columnApi.advancedSearch(params, 1, PAGINATION.DEFAULT_PAGE_SIZE);
 
       setFilteredColumns((response.records || []).map(mapColumnToUi));
@@ -249,7 +253,7 @@ export default function BatchAuditPage(props) {
   const handleReset = useCallback(() => {
     setSearchParams({
       aufnr: '',
-      columnSn: '',
+      productSn: '',
       vbeln: '',
       deviceSn: '',
       mode: TEST_TYPES.ALL,
@@ -271,10 +275,10 @@ export default function BatchAuditPage(props) {
     }
 
     setApproving(true);
-    const columnSns = [...selection.selectedItems];
-    const approveCount = columnSns.length;
+    const productSns = [...selection.selectedItems];
+    const approveCount = productSns.length;
     try {
-      await columnApi.batchApprove(columnSns);
+      await columnApi.batchApprove(productSns);
       fetchPendingColumns(pageNum);
       selection.clearSelection();
       toast({
@@ -283,7 +287,7 @@ export default function BatchAuditPage(props) {
       });
 
       if (approveCount > 0) {
-        setApprovedColumnSns(columnSns);
+        setApprovedColumnSns(productSns);
         setPostApproveDialogOpen(true);
       }
     } catch (error) {
@@ -314,9 +318,9 @@ export default function BatchAuditPage(props) {
       setApprovedColumnSns([]);
 
       // 获取已审核列表
-      const columnSns = [...approvedColumnSns];
+      const productSns = [...approvedColumnSns];
       // 分批
-      const batches = chunkArray(columnSns, 20);
+      const batches = chunkArray(productSns, 20);
 
       // 提交生成任务
       void (async () => {
@@ -366,9 +370,9 @@ export default function BatchAuditPage(props) {
       setApprovedColumnSns([]);
 
       // 获取已审核列表
-      const columnSns = [...approvedColumnSns];
+      const productSns = [...approvedColumnSns];
       // 提交生成任务
-      const submitResult = await reportApi.submitGenerateZipTask(columnSns);
+      const submitResult = await reportApi.submitGenerateZipTask(productSns);
       const taskId = submitResult?.taskId;
       if (!taskId) {
         throw new Error('未获取到任务ID');
@@ -397,7 +401,7 @@ export default function BatchAuditPage(props) {
 
               toast({
                 title: '下载开始',
-                description: `已开始下载 ${columnSns.length} 个报告的压缩包`,
+                description: `已开始下载 ${productSns.length} 个报告的压缩包`,
               });
               break;
             }
@@ -651,7 +655,7 @@ export default function BatchAuditPage(props) {
                 onSelectColumn={(id) => selection.toggleSelection(id)}
                 onSelectAll={(checked) =>
                   selection.toggleSelectAll(
-                    currentColumns.map((c) => ({ id: c.columnSn })),
+                    currentColumns.map((c) => ({ id: c.productSn })),
                     checked
                   )
                 }

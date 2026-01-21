@@ -31,9 +31,8 @@ export const ReportTable = ({
               onCheckedChange={(checked) => onSelectAll(checked === true)}
             />
           </TableHead>
-          <TableHead>层析柱序列号</TableHead>
+          <TableHead>成品序列号</TableHead>
           <TableHead>工单号</TableHead>
-          <TableHead>订单号</TableHead>
           <TableHead>报告类型</TableHead>
           <TableHead>检测模式</TableHead>
           <TableHead>检测日期</TableHead>
@@ -43,7 +42,7 @@ export const ReportTable = ({
       <TableBody>
         {reports.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={8} className="text-center">
+            <TableCell colSpan={7} className="text-center">
               暂无数据
             </TableCell>
           </TableRow>
@@ -57,9 +56,8 @@ export const ReportTable = ({
                   onCheckedChange={() => onSelectReport(report.columnSn)}
                 />
               </TableCell>
-              <TableCell className="font-medium">{report.columnSn}</TableCell>
+              <TableCell className="font-medium">{report.productSn || '-'}</TableCell>
               <TableCell>{report.aufnr}</TableCell>
-              <TableCell>{report.vbeln}</TableCell>
               <TableCell>{report.reportType}</TableCell>
               <TableCell>
                 <ModeTag mode={report.mode} />

@@ -20,15 +20,9 @@ export function BatchSearchFilters({
     },
     {
       type: 'input',
-      name: 'columnSn',
-      label: '层析柱序列号',
-      placeholder: '请输入层析柱序列号',
-    },
-    {
-      type: 'input',
-      name: 'vbeln',
-      label: '订单号',
-      placeholder: '请输入订单号',
+      name: 'productSn',
+      label: '成品序列号',
+      placeholder: '请输入成品序列号',
     },
     {
       type: 'input',

@@ -57,7 +57,7 @@ export default function QueryReportsPage(props) {
   // 搜索条件
   const [searchParams, setSearchParams] = useState({
     GI_AUFNR: '',  // 工单号
-    columnSn: '',  // 层析柱序列号
+    productSn: '',  // 成品序列号
     GI_VBELN: '',  // 订单号
     GI_RSNUM: '',  // 预留单号
     GI_ZDH: '',    // 非生产领料单号
@@ -102,6 +102,12 @@ export default function QueryReportsPage(props) {
         status: params?.status === 'all' ? '' : params?.status,
         reportType: params?.reportType === 'all' ? '' : params?.reportType,
       };
+
+      // 前端只暴露 productSn；后端搜索字段仍使用 columnSn（后端会同时匹配 Report.columnSn / Report.productSn）
+      if (req.productSn) {
+        req.columnSn = req.productSn;
+        delete req.productSn;
+      }
       const response = await reportApi.searchReports(
         req,
         page,
@@ -110,7 +116,12 @@ export default function QueryReportsPage(props) {
 
       // MyBatis-Plus Page 对象序列化后的字段：records, total, pages, current, size
       //更新数据
-      setReports(response.records || []);
+      const records = (response.records || []).map((r) => ({
+        ...r,
+        // 兼容后端可能返回的下划线字段命名
+        productSn: r?.productSn ?? r?.product_sn ?? r?.productSN ?? null,
+      }));
+      setReports(records);
       setTotal(response.total || 0);
       setPageNum(page);
       setTotalPages(response.pages || Math.ceil((response.total || 0) / PAGINATION.DEFAULT_PAGE_SIZE));
@@ -156,7 +167,7 @@ export default function QueryReportsPage(props) {
   const handleReset = () => {
     const resetValues = {
       GI_AUFNR: '',
-      columnSn: '',
+      productSn: '',
       GI_VBELN: '',
       GI_RSNUM: '',  // 预留单号
       GI_ZDH: '',    // 非生产领料单号
@@ -173,6 +184,7 @@ export default function QueryReportsPage(props) {
   const handleDownload = useCallback( async (report) => {
       try {
         const columnSn = typeof report === 'string' ? report : report?.columnSn;
+        const productSn = typeof report === 'string' ? '' : (report?.productSn ?? report?.product_sn ?? '');
         if (!columnSn) {
           throw new Error('缺少报告编号');
         }
@@ -181,7 +193,8 @@ export default function QueryReportsPage(props) {
         const url = window.URL.createObjectURL(blob);
         const link = document.body.appendChild(document.createElement('a'));
         link.href = url;
-        link.download = `Report_${columnSn}.pdf`;
+        const fileBaseName = (productSn || '').trim() || columnSn;
+        link.download = `${fileBaseName}.pdf`;
         link.click();
         window.URL.revokeObjectURL(url);
         link.remove();
@@ -297,11 +310,33 @@ export default function QueryReportsPage(props) {
       if (!columnSn) return;
       setGenerating(true);
       try {
-        await reportApi.generateReport(columnSn, mode);
+        const submitRes = await reportApi.submitGenerateOnlyTask([columnSn], mode);
+        const taskId = submitRes?.taskId;
+        if (!taskId) {
+          throw new Error('未获取到任务ID');
+        }
+
+        const startedAt = Date.now();
+        while (true) {
+          const task = await reportApi.getTask(taskId);
+          if (task?.status === 'FAILED') {
+            const failedMsg = task?.failed?.[columnSn];
+            throw new Error(failedMsg || '任务执行失败');
+          }
+          if (task?.status === 'SUCCESS') {
+            break;
+          }
+          if (Date.now() - startedAt > 5 * 60 * 1000) {
+            throw new Error('生成超时，请稍后在列表中刷新确认');
+          }
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+
         toast({
-          title: '生成成功',
+          title: '生成完成',
           description: `报告 ${columnSn} 已重新生成`,
         });
+
         await fetchReports(pageNum, searchParams);
         setGenerateDialogOpen(false);
         setExistenceInfo(null);
