@@ -84,9 +84,10 @@ export function SignaturePad({ isOpen, onClose, onConfirm, signing = false }) {
       await onConfirm(signatureData);
       clearSignature();
     } catch (error) {
-      console.error('签名确认失败:', error);
+      console.error(`【签名】签名确认失败, signing=${signing === true}`,
+        error);
     }
-  }, [onConfirm, clearSignature, isCanvasEmpty]);
+  }, [onConfirm, clearSignature, isCanvasEmpty, signing]);
 
   if (!isOpen) return null;
   return (

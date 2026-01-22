@@ -33,6 +33,7 @@ import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES, TEST_TYPES, PAGINATION } from '@/constants';
 import columnApi from '@/api/column';
 import reportApi from '@/api/report';
+import { showErrorToast } from '@/utils/toast';
 
 export default function QueryColumnsPage(props) {
   const { $w, style } = props;
@@ -145,12 +146,9 @@ export default function QueryColumnsPage(props) {
 
         return response;
       } catch (error) {
-        console.error('获取层析柱失败:', error);
-        toast({
-          title: '获取数据失败',
-          description: error.response?.data?.message || error.message || '无法加载层析柱列表',
-          variant: 'destructive',
-        });
+        console.error(`【层析柱查询】获取层析柱失败, page=${page}`,
+          error);
+        showErrorToast(toast, { title: '获取数据失败', description: '无法加载层析柱列表，请稍后重试' });
         throw error;
       } finally {
         setLoading(false);
@@ -159,6 +157,7 @@ export default function QueryColumnsPage(props) {
     [toast],
   );
 
+  // 当前页的层析柱
   const currentPageColumnSns = useMemo(
     () => (columns || []).map((c) => c?.columnSn).filter(Boolean),
     [columns],
@@ -206,6 +205,7 @@ export default function QueryColumnsPage(props) {
     });
   }, []);
 
+  // 批量生成报告
   const doBatchGenerateReport = useCallback(
     async (mode) => {
       if ((selectedColumnSns || []).length === 0) return;
@@ -242,12 +242,9 @@ export default function QueryColumnsPage(props) {
         setSelectedColumnSns([]);
         setBatchGenerateDialogOpen(false);
       } catch (error) {
-        console.error('批量生成失败:', error);
-        toast({
-          title: '批量生成失败',
-          description: error?.response?.data?.message || error?.message || '无法批量生成报告',
-          variant: 'destructive',
-        });
+        console.error(`【层析柱查询】批量生成失败, count=${selectedColumnSns.length}, mode=${mode}`,
+          error);
+        showErrorToast(toast, { title: '批量生成失败', description: '批量生成失败，请稍后重试' });
       } finally {
         setGenerating(false);
       }
@@ -255,6 +252,7 @@ export default function QueryColumnsPage(props) {
     [appliedSearchParams, fetchColumns, pageNum, selectedColumnSns, toast],
   );
 
+  // 批量删除报告
   const doBatchDelete = useCallback(
     async (deleteMode) => {
       if ((selectedColumnSns || []).length === 0) return;
@@ -288,12 +286,9 @@ export default function QueryColumnsPage(props) {
         setSelectedColumnSns([]);
         setBatchDeleteDialogOpen(false);
       } catch (error) {
-        console.error('批量删除失败:', error);
-        toast({
-          title: '批量删除失败',
-          description: error?.response?.data?.message || error?.message || '无法批量删除',
-          variant: 'destructive',
-        });
+        console.error(`【层析柱查询】批量删除失败, count=${selectedColumnSns.length}, deleteMode=${deleteMode}`,
+          error);
+        showErrorToast(toast, { title: '批量删除失败', description: '批量删除失败，请稍后重试' });
       } finally {
         setDeleting(false);
       }
@@ -301,6 +296,7 @@ export default function QueryColumnsPage(props) {
     [appliedSearchParams, fetchColumns, pageNum, selectedColumnSns, toast],
   );
 
+  // 搜索
   const handleSearch = useCallback(async () => {
     try {
       setAppliedSearchParams(draftSearchParams);
@@ -311,12 +307,8 @@ export default function QueryColumnsPage(props) {
         description: `找到 ${response.total || 0} 条层析柱`,
       });
     } catch (error) {
-      console.error('搜索失败:', error);
-      toast({
-        title: '搜索失败',
-        description: '无法执行搜索操作',
-        variant: 'destructive',
-      });
+      console.error('【层析柱查询】搜索失败', error);
+      showErrorToast(toast, { title: '搜索失败', description: '无法执行搜索操作，请稍后重试' });
     }
   }, [draftSearchParams, fetchColumns, toast]);
 
@@ -334,6 +326,7 @@ export default function QueryColumnsPage(props) {
     fetchColumns(1, resetValues);
   }, [fetchColumns]);
 
+  // 返回主页
   const handleBackToMain = useCallback(() => {
     $w?.utils.navigateTo({
       pageId: 'main',

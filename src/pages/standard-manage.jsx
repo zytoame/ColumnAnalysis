@@ -37,6 +37,7 @@ import { AntdTag } from '@/components/AntdTag.jsx';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES } from '@/constants';
 import columnApi from '@/api/column';
+import { showErrorToast } from '@/utils/toast';
 
 const STANDARD_TYPES = {
   ALL: 'all',
@@ -158,11 +159,7 @@ export default function StandardManagePage(props) {
         setStandards(Array.isArray(list) ? list : []);
         return list;
       } catch (e) {
-        toast({
-          title: '查询失败',
-          description: e instanceof Error ? e.message : '无法查询标准列表',
-          variant: 'destructive',
-        });
+        showErrorToast(toast, { title: '查询失败', description: '无法查询标准列表，请稍后重试' });
         throw e;
       } finally {
         setLoading(false);
@@ -309,11 +306,7 @@ export default function StandardManagePage(props) {
       setDialogOpen(false);
       await fetchStandards(searchParams);
     } catch (e) {
-      toast({
-        title: '保存失败',
-        description: e instanceof Error ? e.message : '无法保存标准',
-        variant: 'destructive',
-      });
+      showErrorToast(toast, { title: '保存失败', description: '保存失败，请稍后重试' });
     } finally {
       setSaving(false);
     }
@@ -352,11 +345,7 @@ export default function StandardManagePage(props) {
       setDeletingStandard(null);
       await fetchStandards(searchParams);
     } catch (e) {
-      toast({
-        title: '删除失败',
-        description: e instanceof Error ? e.message : '无法删除标准',
-        variant: 'destructive',
-      });
+      showErrorToast(toast, { title: '删除失败', description: '删除失败，请稍后重试' });
     } finally {
       setSaving(false);
     }

@@ -3,7 +3,7 @@ import React from 'react';
 // @ts-ignore;
 import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Checkbox } from '@/components/ui';
 // @ts-ignore;
-import { Eye, ChevronDown, ChevronUp, Download, FileText } from 'lucide-react';
+import { Eye, ChevronDown, ChevronUp, Download, FileText, Trash2 } from 'lucide-react';
 // @ts-ignore;
 import { DetectionDataCard } from '@/components/DetectionDataCard.jsx';
 import { ModeTag } from '@/components/AntdTag.jsx';
@@ -16,6 +16,7 @@ export const ReportTable = ({
   onPreview,
   onGenerate,
   onDownload,
+  onDelete,
 }) => {
   // 判断当前页是否全选
   const isAllSelected = reports.length > 0 &&
@@ -100,6 +101,14 @@ export const ReportTable = ({
                   </Button> */}
                   <Button variant="ghost" size="sm" onClick={() => onDownload(report)}>
                     <Download className="h-4 w-4 mr-1" /> 下载
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onDelete?.(report)}
+                    disabled={!onDelete}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" /> 删除
                   </Button>
                 </div>
               </TableCell>

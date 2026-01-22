@@ -57,6 +57,9 @@ const reportApi = {
       responseType: 'blob'
     }),
 
+  // 删除报告
+  deleteReport: (id) => axios.delete(`${API_BASE_URL}/report/${id}`),
+
   // 批量下载报告
   downloadBatchReports: (columnSns) =>
     axios.post(`${API_BASE_URL}/report/download-batch`, columnSns, {

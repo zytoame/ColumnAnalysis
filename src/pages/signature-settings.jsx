@@ -19,6 +19,7 @@ import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES } from '@/constants';
 import signatureSettingsApi from '@/api/signatureSettings';
 import { SignaturePad } from '@/components/SignaturePad.jsx';
+import { showErrorToast } from '@/utils/toast';
 
 export default function SignatureSettingsPage(props) {
   const { $w, style } = props;
@@ -68,11 +69,7 @@ export default function SignatureSettingsPage(props) {
       }
       setSettings(data);
     } catch (error) {
-      toast({
-        title: '获取失败',
-        description: error?.message || '获取签名配置失败',
-        variant: 'destructive',
-      });
+      showErrorToast(toast, { title: '获取失败', description: '获取签名配置失败，请稍后重试' });
     } finally {
       setLoading(false);
     }
@@ -107,11 +104,7 @@ export default function SignatureSettingsPage(props) {
       });
       await fetchSettings();
     } catch (error) {
-      toast({
-        title: '上传失败',
-        description: error?.message || '上传失败',
-        variant: 'destructive',
-      });
+      showErrorToast(toast, { title: '上传失败', description: '上传失败，请稍后重试' });
     } finally {
       setUploadingEnRole('');
       if (inspectionEnFileRef.current) inspectionEnFileRef.current.value = '';
@@ -153,11 +146,7 @@ export default function SignatureSettingsPage(props) {
       setSignaturePadOpen(false);
       setSignaturePadRole('');
     } catch (error) {
-      toast({
-        title: '签名保存失败',
-        description: error?.message || '签名保存失败',
-        variant: 'destructive',
-      });
+      showErrorToast(toast, { title: '签名保存失败', description: '签名保存失败，请稍后重试' });
     } finally {
       setSignaturePadSigning(false);
     }
@@ -191,11 +180,7 @@ export default function SignatureSettingsPage(props) {
       setUserId('');
       await fetchSettings();
     } catch (error) {
-      toast({
-        title: '保存失败',
-        description: error?.message || '保存失败',
-        variant: 'destructive',
-      });
+      showErrorToast(toast, { title: '保存失败', description: '保存失败，请稍后重试' });
     } finally {
       setSaving(false);
     }
@@ -263,7 +248,7 @@ export default function SignatureSettingsPage(props) {
 
         <Card>
           <CardHeader>
-            <CardTitle>英文签名图片（PNG）</CardTitle>
+            <CardTitle>更改英文签名</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -344,7 +329,7 @@ export default function SignatureSettingsPage(props) {
 
         <Card>
           <CardHeader>
-            <CardTitle>更改签名工号</CardTitle>
+            <CardTitle>更改中文签名</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

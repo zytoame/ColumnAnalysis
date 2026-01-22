@@ -18,6 +18,7 @@ import { AntdTag } from '@/components/AntdTag.jsx';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES } from '@/constants';
 import snMappingApi from '@/api/snMapping';
+import { showErrorToast } from '@/utils/toast';
 
 export default function SnMappingManagePage(props) {
   const { $w, style } = props;
@@ -84,11 +85,7 @@ export default function SnMappingManagePage(props) {
         description: '序列号映射表已处理完成',
       });
     } catch (error) {
-      toast({
-        title: '导入失败',
-        description: error?.message || '导入失败',
-        variant: 'destructive',
-      });
+      showErrorToast(toast, { title: '导入失败', description: '导入失败，请稍后重试' });
     } finally {
       setImporting(false);
       resetFileInput();

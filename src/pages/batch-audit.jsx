@@ -13,6 +13,7 @@ import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES, TEST_TYPES, PAGINATION, CONCLUSION_STATUS } from '@/constants';
 import columnApi from '@/api/column';
 import reportApi from '@/api/report';
+import { showErrorToast } from '@/utils/toast';
 
 
 
@@ -172,12 +173,9 @@ export default function BatchAuditPage(props) {
       const standard = await fetchAndCacheStandard(columnSn);
       if (standard) applyStandardToColumns(columnSn, standard);
     } catch (error) {
-      console.error('获取层析柱标准失败:', error);
-      toast({
-        title: '获取标准失败',
-        description: '无法加载该层析柱的标准值，将以“-”显示',
-        variant: 'destructive',
-      });
+      console.error(`【批量审核】获取层析柱标准失败, columnSn=${columnSn}`,
+        error);
+      showErrorToast(toast, { title: '获取标准失败', description: '无法加载该层析柱的标准值，将以“-”显示' });
     } finally {
       expand.toggleExpand(columnSn);
     }
@@ -200,12 +198,9 @@ export default function BatchAuditPage(props) {
       setTotal(data.total || 0);
       setTotalPages(data.pages || 0);
     } catch (error) {
-      console.error('获取待审核层析柱失败:', error);
-      toast({
-        title: '获取数据失败',
-        description: '无法加载待审核层析柱列表',
-        variant: 'destructive',
-      });
+      console.error(`【批量审核】获取待审核层析柱失败, page=${page}`,
+        error);
+      showErrorToast(toast, { title: '获取数据失败', description: '无法加载待审核层析柱列表，请稍后重试' });
     } finally {
       setLoading(false);
     }
@@ -238,12 +233,8 @@ export default function BatchAuditPage(props) {
         description: `找到 ${response.total || 0} 条待审核层析柱`,
       });
     } catch (error) {
-      console.error('搜索失败:', error);
-      toast({
-        title: '搜索失败',
-        description: '无法执行搜索操作',
-        variant: 'destructive',
-      });
+      console.error('【批量审核】搜索失败', error);
+      showErrorToast(toast, { title: '搜索失败', description: '无法执行搜索操作，请稍后重试' });
     } finally {
       setLoading(false);
     }
@@ -291,13 +282,9 @@ export default function BatchAuditPage(props) {
         setPostApproveDialogOpen(true);
       }
     } catch (error) {
-      console.error('批量审核失败:', error);
-      const errorMessage = error instanceof Error ? error.message : '无法完成批量审核';
-      toast({
-        title: '批量审核失败',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      console.error(`【批量审核】批量审核失败, count=${approveCount}`,
+        error);
+      showErrorToast(toast, { title: '批量审核失败', description: '批量审核失败，请稍后重试' });
     } finally {
       setApproving(false);
     }
@@ -329,25 +316,15 @@ export default function BatchAuditPage(props) {
             await reportApi.submitGenerateOnlyTask(batches[i]);
           }
         } catch (e) {
-          console.error('提交批量生成任务失败:', e);
-          const backendMsg = e?.response?.data?.message;
-          const errorMessage = backendMsg || (e instanceof Error ? e.message : '无法提交生成任务');
-          toast({
-            title: '提交生成任务失败',
-            description: errorMessage,
-            variant: 'destructive',
-          });
+          console.error(`【批量审核】提交批量生成任务失败, batchCount=${batches.length}`,
+            e);
+          showErrorToast(toast, { title: '提交生成任务失败', description: '无法提交生成任务，请稍后重试' });
         }
       })();
     } catch (error) {
-      console.error('批量生成失败:', error);
-      const backendMsg = error?.response?.data?.message;
-      const errorMessage = backendMsg || (error instanceof Error ? error.message : '无法批量生成报告');
-      toast({
-        title: '批量生成失败',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      console.error(`【批量审核】批量生成失败, count=${approvedColumnSns.length}`,
+        error);
+      showErrorToast(toast, { title: '批量生成失败', description: '批量生成失败，请稍后重试' });
     } finally {
       // 重置状态
       setGeneratingAfterApprove(false);
@@ -413,25 +390,15 @@ export default function BatchAuditPage(props) {
             await new Promise((r) => setTimeout(r, 2000));
           }
         } catch (e) {
-          console.error('生成并下载任务失败:', e);
-          const backendMsg = e?.response?.data?.message;
-          const errorMessage = backendMsg || (e instanceof Error ? e.message : '无法生成并下载报告');
-          toast({
-            title: '生成并下载失败',
-            description: errorMessage,
-            variant: 'destructive',
-          });
+          console.error(`【批量审核】生成并下载任务失败, taskId=${taskId}, count=${productSns.length}`,
+            e);
+          showErrorToast(toast, { title: '生成并下载失败', description: '生成并下载失败，请稍后重试' });
         }
       })();
     } catch (error) {
-      console.error('批量生成并下载失败:', error);
-      const backendMsg = error?.response?.data?.message;
-      const errorMessage = backendMsg || (error instanceof Error ? error.message : '无法批量生成并下载报告');
-      toast({
-        title: '批量生成失败',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      console.error(`【批量审核】批量生成并下载失败, count=${approvedColumnSns.length}`,
+        error);
+      showErrorToast(toast, { title: '批量生成失败', description: '批量生成并下载失败，请稍后重试' });
     } finally {
       // 重置状态
       setGeneratingAfterApprove(false);
@@ -458,12 +425,9 @@ export default function BatchAuditPage(props) {
           setShowDetailModal(true);
         }
       } catch (error) {
-        console.error('获取层析柱详情失败:', error);
-        toast({
-          title: '获取详情失败',
-          description: '无法加载层析柱详情',
-          variant: 'destructive',
-        });
+        console.error(`【批量审核】获取层析柱详情失败, columnSn=${columnSn}`,
+          error);
+        showErrorToast(toast, { title: '获取详情失败', description: '无法加载层析柱详情，请稍后重试' });
       }
     },
     [applyStandardToColumns, fetchAndCacheStandard, pendingColumns, toast]

@@ -12,6 +12,7 @@ import { generatePageNumbers } from '@/utils/pagination';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES, PAGINATION, DATE_RANGES, TEST_TYPES, CONCLUSION_STATUS } from '@/constants';
 import columnApi from '@/api/column';
+import { showErrorToast } from '@/utils/toast';
 
 export default function UnqualifiedReportsPage(props) {
   const { $w, style } = props;
@@ -196,12 +197,9 @@ export default function UnqualifiedReportsPage(props) {
       setTotal(data.total || 0);
       setTotalPages(data.pages || 0);
     } catch (error) {
-      console.error('获取不合格层析柱失败:', error);
-      toast({
-        title: '获取数据失败',
-        description: '无法加载不合格层析柱列表',
-        variant: 'destructive',
-      });
+      console.error(`【不合格管理】获取不合格层析柱失败, page=${page}`,
+        error);
+      showErrorToast(toast, { title: '获取数据失败', description: '无法加载不合格层析柱列表，请稍后重试' });
     } finally {
       setLoading(false);
     }
@@ -235,12 +233,8 @@ export default function UnqualifiedReportsPage(props) {
         description: `找到 ${response.total || 0} 条不合格层析柱`,
       });
     } catch (error) {
-      console.error('搜索失败:', error);
-      toast({
-        title: '搜索失败',
-        description: '无法执行搜索操作',
-        variant: 'destructive',
-      });
+      console.error('【不合格管理】搜索失败', error);
+      showErrorToast(toast, { title: '搜索失败', description: '无法执行搜索操作，请稍后重试' });
     } finally {
       setLoading(false);
     }
@@ -297,13 +291,9 @@ export default function UnqualifiedReportsPage(props) {
 
         fetchUnqualifiedColumns(pageNum);
       } catch (error) {
-        console.error('保存失败:', error);
-        const errorMessage = error instanceof Error ? error.message : '无法保存层析柱更改';
-        toast({
-          title: '保存失败',
-          description: errorMessage,
-          variant: 'destructive',
-        });
+        console.error(`【不合格管理】保存失败, columnSn=${updatedColumn?.columnSn || ''}`,
+          error);
+        showErrorToast(toast, { title: '保存失败', description: '保存失败，请稍后重试' });
       } finally {
         setSaving(false);
       }
@@ -511,12 +501,9 @@ export default function UnqualifiedReportsPage(props) {
                     });
                     setShowEditModal(true);
                   } catch (error) {
-                    console.error('获取层析柱标准失败:', error);
-                    toast({
-                      title: '获取标准失败',
-                      description: '无法加载该层析柱的标准值，将以“-”显示',
-                      variant: 'destructive',
-                    });
+                    console.error(`【不合格管理】获取层析柱标准失败, columnSn=${columnSn}`,
+                      error);
+                    showErrorToast(toast, { title: '获取标准失败', description: '无法加载该层析柱的标准值，将以“-”显示' });
                     setEditingColumn({
                       ...column,
                       detectionData: JSON.parse(JSON.stringify(column.detectionData)),

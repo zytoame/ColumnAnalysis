@@ -99,8 +99,10 @@ ToastTitle.displayName = ToastPrimitives.Title.displayName
 
 const ToastDescription = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Description>,
-  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description>
->(({ className, children, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description> & {
+    showCopy?: boolean
+  }
+>(({ className, children, showCopy = true, ...props }, ref) => {
   const [copied, setCopied] = React.useState(false)
 
   const copyToClipboard = async () => {
@@ -126,27 +128,31 @@ const ToastDescription = React.forwardRef<
     >
       <span className="inline-flex items-center gap-2">
         <span>{children}</span>
-        <button
-          onClick={copyToClipboard}
-          className={cn(
-            "inline-flex h-4 w-4 items-center justify-center rounded text-current bg-black/5 transition-all hover:bg-black/10 focus:outline-none focus:ring-1 focus:ring-current/20 active:scale-95 dark:bg-white/10 dark:hover:bg-white/20 dark:focus:ring-white/30",
-            copied && "!text-green-500 bg-green-500/10 hover:bg-green-500/20 dark:bg-green-500/20 dark:hover:bg-green-500/30",
-          )}
-          title={copied ? "已复制!" : "复制内容"}
-        >
-          {copied ? (
-            <Check className="h-3 w-3" />
-          ) : (
-            <Copy className="h-3 w-3" />
-          )}
-        </button>
+        {showCopy && (
+          <button
+            onClick={copyToClipboard}
+            className={cn(
+              "inline-flex h-4 w-4 items-center justify-center rounded text-current bg-black/5 transition-all hover:bg-black/10 focus:outline-none focus:ring-1 focus:ring-current/20 active:scale-95 dark:bg-white/10 dark:hover:bg-white/20 dark:focus:ring-white/30",
+              copied && "!text-green-500 bg-green-500/10 hover:bg-green-500/20 dark:bg-green-500/20 dark:hover:bg-green-500/30",
+            )}
+            title={copied ? "已复制!" : "复制内容"}
+          >
+            {copied ? (
+              <Check className="h-3 w-3" />
+            ) : (
+              <Copy className="h-3 w-3" />
+            )}
+          </button>
+        )}
       </span>
     </ToastPrimitives.Description>
   )
 })
 ToastDescription.displayName = ToastPrimitives.Description.displayName
 
-type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
+type ToastProps = React.ComponentPropsWithoutRef<typeof Toast> & {
+  showCopy?: boolean
+}
 
 type ToastActionElement = React.ReactElement<typeof ToastAction>
 

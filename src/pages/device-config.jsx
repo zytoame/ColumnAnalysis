@@ -37,6 +37,7 @@ import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES } from '@/constants';
 import { ArrowLeft, Cpu, Loader2, Plug, Plus, RefreshCw, Unplug, Pencil, Trash2 } from 'lucide-react';
 import deviceConfigApi from '@/api/deviceConfig';
+import { showErrorToast } from '@/utils/toast';
 
 const EMPTY_FORM = {
   name: '',
@@ -90,11 +91,7 @@ export default function DeviceConfigPage(props) {
       }
       setMachines(Array.isArray(list) ? list : []);
     } catch (e) {
-      toast({
-        title: '获取失败',
-        description: e instanceof Error ? e.message : '获取机器列表失败',
-        variant: 'destructive',
-      });
+      showErrorToast(toast, { title: '获取失败', description: '获取机器列表失败，请稍后重试' });
     } finally {
       setLoading(false);
     }
@@ -112,7 +109,9 @@ export default function DeviceConfigPage(props) {
     } catch (e) {
       // 状态轮询失败不弹窗刷屏，只在控制台打印
       // eslint-disable-next-line no-console
-      console.warn('fetch status failed:', e);
+      if (import.meta.env.DEV) {
+        console.warn('fetch status failed:', e);
+      }
     }
   }, []);
 
@@ -263,11 +262,7 @@ export default function DeviceConfigPage(props) {
       await fetchMachines();
       await fetchStatus();
     } catch (e) {
-      toast({
-        title: '保存失败',
-        description: e instanceof Error ? e.message : '保存失败',
-        variant: 'destructive',
-      });
+      showErrorToast(toast, { title: '保存失败', description: '保存失败，请稍后重试' });
     } finally {
       setSaving(false);
     }
@@ -307,11 +302,7 @@ export default function DeviceConfigPage(props) {
       await fetchMachines();
       await fetchStatus();
     } catch (e) {
-      toast({
-        title: '删除失败',
-        description: e instanceof Error ? e.message : '无法删除机器',
-        variant: 'destructive',
-      });
+      showErrorToast(toast, { title: '删除失败', description: '删除失败，请稍后重试' });
     } finally {
       setSaving(false);
     }
@@ -333,11 +324,7 @@ export default function DeviceConfigPage(props) {
         });
         await fetchStatus();
       } catch (e) {
-        toast({
-          title: '连接失败',
-          description: e instanceof Error ? e.message : '连接失败',
-          variant: 'destructive',
-        });
+        showErrorToast(toast, { title: '连接失败', description: '连接失败，请稍后重试' });
       } finally {
         setSaving(false);
       }
@@ -391,11 +378,7 @@ export default function DeviceConfigPage(props) {
 
       await fetchStatus();
     } catch (e) {
-      toast({
-        title: '批量连接失败',
-        description: e instanceof Error ? e.message : '批量连接失败',
-        variant: 'destructive',
-      });
+      showErrorToast(toast, { title: '批量连接失败', description: '批量连接失败，请稍后重试' });
     } finally {
       setSaving(false);
     }
@@ -447,11 +430,7 @@ export default function DeviceConfigPage(props) {
 
       await fetchStatus();
     } catch (e) {
-      toast({
-        title: '批量断开失败',
-        description: e instanceof Error ? e.message : '批量断开失败',
-        variant: 'destructive',
-      });
+      showErrorToast(toast, { title: '批量断开失败', description: '批量断开失败，请稍后重试' });
     } finally {
       setSaving(false);
     }
@@ -473,11 +452,7 @@ export default function DeviceConfigPage(props) {
         });
         await fetchStatus();
       } catch (e) {
-        toast({
-          title: '断开失败',
-          description: e instanceof Error ? e.message : '断开失败',
-          variant: 'destructive',
-        });
+        showErrorToast(toast, { title: '断开失败', description: '断开失败，请稍后重试' });
       } finally {
         setSaving(false);
       }

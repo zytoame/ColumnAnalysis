@@ -6,6 +6,7 @@ import { Button, Input, Card, CardContent, CardHeader, CardTitle, Dialog, Dialog
 import { X, Save, Edit2, Thermometer, Gauge, Timer, Activity, AlertTriangle, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
 import { AntdTag } from '@/components/AntdTag.jsx';
 import columnApi from '@/api/column';
+import { showErrorToast } from '@/utils/toast';
 
 export function EditModal({
   isOpen,
@@ -226,11 +227,7 @@ export function EditModal({
         });
       } catch (e) {
         if (cancelled) return;
-        toast({
-          title: '加载重复性测值失败',
-          description: e instanceof Error ? e.message : '无法加载重复性测值',
-          variant: 'destructive',
-        });
+        showErrorToast(toast, { title: '加载重复性测值失败', description: '无法加载重复性测值，请稍后重试' });
       }
     })();
 

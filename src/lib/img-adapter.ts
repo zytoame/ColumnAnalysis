@@ -64,7 +64,9 @@ function createBatchUrlConverter(
     urls.forEach((url) => processingUrls.add(url));
 
     try {
-      console.log(`批量处理 ${urls.length} 个 URL`);
+      if (import.meta.env.DEV) {
+        console.log(`批量处理 ${urls.length} 个 URL`);
+      }
 
       const map = await (window as any).$w.cloud.getTempFileURL(urls);
 
@@ -154,13 +156,14 @@ function setupMutationObserver() {
       if (mutation.type === "childList") {
         mutation.addedNodes.forEach(function (node) {
           if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node as Element;
             // 检查新增的节点本身是否是 img
-            if (node.tagName === "IMG") {
-              interceptImageSrc(node);
+            if (element.tagName === "IMG") {
+              interceptImageSrc(element as HTMLImageElement);
             }
             // 检查新增节点的子元素中是否有 img
             const images =
-              node.querySelectorAll && node.querySelectorAll("img");
+              element.querySelectorAll && element.querySelectorAll("img");
             if (images) {
               images.forEach((img) => interceptImageSrc(img));
             }
@@ -187,7 +190,9 @@ function setupMutationObserver() {
     attributeFilter: ["src"],
   });
 
-  console.log("MutationObserver 已启动");
+  if (import.meta.env.DEV) {
+    console.log("MutationObserver 已启动");
+  }
 }
 
 export function runImageAdapter() {

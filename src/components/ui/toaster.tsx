@@ -19,7 +19,11 @@ export function Toaster() {
             <div className="grid gap-1">
               {title && <ToastTitle>{title}</ToastTitle>}
               {description && (
-                <ToastDescription>{description}</ToastDescription>
+                <ToastDescription
+                  showCopy={props.showCopy ?? props.variant !== "destructive"}
+                >
+                  {description}
+                </ToastDescription>
               )}
             </div>
             {action}

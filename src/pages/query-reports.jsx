@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle, useToast,
   Pagination, PaginationContent, PaginationEllipsis, PaginationItem,
   PaginationLink, PaginationNext, PaginationPrevious,
@@ -15,11 +15,14 @@ import reportApi from '@/api/report';
 import { generatePageNumbers } from '@/utils/pagination';
 import { getUserTypeLabel } from '@/utils/format';
 import { USER_TYPES, TEST_TYPES, PAGINATION, TEST_RESULTS } from '@/constants';
+import { showErrorToast } from '@/utils/toast';
 
 
 export default function QueryReportsPage(props) {
   const { $w, style } = props;
   const { toast } = useToast();
+
+  const taskPollTimersRef = useRef({});
 
   // 状态管理
   const [reports, setReports] = useState([]);
@@ -128,13 +131,8 @@ export default function QueryReportsPage(props) {
     
       return response;
     } catch (error) {
-      console.error('获取报告失败:', error);
-      console.error('错误详情:', error.response?.data || error.message);
-      toast({
-        title: '获取数据失败',
-        description: error.response?.data?.message || error.message || '无法加载报告列表',
-        variant: 'destructive',
-      });
+      console.error(`【报告查询】获取报告失败, page=${page}`, error);
+      showErrorToast(toast, { title: '获取数据失败', description: '无法加载报告列表，请稍后重试' });
       throw error;
     } finally {
       setLoading(false);
@@ -152,12 +150,8 @@ export default function QueryReportsPage(props) {
         description: `找到 ${response.total} 条报告`,
       });
     } catch (error) {
-      console.error('搜索失败:', error);
-      toast({
-        title: '搜索失败',
-        description: '无法执行搜索操作',
-        variant: 'destructive',
-      });
+      console.error('【报告查询】搜索失败', error);
+      showErrorToast(toast, { title: '搜索失败', description: '无法执行搜索操作，请稍后重试' });
     } finally {
       setLoading(false);
     }
@@ -205,15 +199,37 @@ export default function QueryReportsPage(props) {
           });
         }
       } catch (error) {
-        console.error('下载失败:', error);
-        const errorMessage = error instanceof Error ? error.message : '无法下载报告';
-        toast({
-          title: '下载失败',
-          description: errorMessage,
-          variant: 'destructive',
-        });
+        console.error(`【报告查询】下载失败, columnSn=${columnSn}, productSn=${productSn || ''}`, error);
+        showErrorToast(toast, { title: '下载失败', description: '下载失败，请稍后重试' });
       }
     },
+  );
+
+  const handleDeleteReport = useCallback(
+    async (report) => {
+      try {
+        const id = report?.id;
+        if (!id) {
+          throw new Error('缺少报告id');
+        }
+
+        const label = (report?.productSn || report?.columnSn || '').toString();
+        const ok = window.confirm(`确认删除报告 ${label} 吗？\n\n删除后将同时删除报告文件，且不可恢复。`);
+        if (!ok) return;
+
+        await reportApi.deleteReport(id);
+        toast({
+          title: '删除成功',
+          description: `报告 ${label} 已删除`,
+        });
+        await fetchReports(pageNum, searchParams);
+      } catch (error) {
+        console.error(`【报告查询】删除失败, reportId=${report?.id ?? ''}, label=${(report?.productSn || report?.columnSn || '').toString()}`,
+          error);
+        showErrorToast(toast, { title: '删除失败', description: '删除失败，请稍后重试' });
+      }
+    },
+    [fetchReports, pageNum, searchParams, toast]
   );
 
   // 批量下载报告
@@ -254,13 +270,9 @@ export default function QueryReportsPage(props) {
       // 清空选择
       selection.clearSelection();
     } catch (error) {
-      console.error('批量下载失败:', error);
-      const errorMessage = error instanceof Error ? error.message : '无法批量下载报告';
-      toast({
-        title: '批量下载失败',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      console.error(`【报告查询】批量下载失败, count=${selection.selectedItems.length}`,
+        error);
+      showErrorToast(toast, { title: '批量下载失败', description: '批量下载失败，请稍后重试' });
     }
   }, [selection, toast]);
 
@@ -290,14 +302,10 @@ export default function QueryReportsPage(props) {
         });
 
       } catch (error) {
-        console.error('获取报告详情失败:', error);
-        console.error('错误详情:', error.response?.data || error.message);
+        console.error(`【报告查询】预览失败, columnSn=${report?.columnSn || ''}`,
+          error);
         setPreviewError(error.response?.data?.message || error.message || '无法加载报告');
-        toast({
-          title: '预览失败',
-          description: error.response?.data?.message || error.message || '无法加载报告',
-          variant: 'destructive',
-        });
+        showErrorToast(toast, { title: '预览失败', description: '无法加载报告，请稍后重试' });
       } finally {
         setPreviewLoading(false);
       }
@@ -316,40 +324,59 @@ export default function QueryReportsPage(props) {
           throw new Error('未获取到任务ID');
         }
 
-        const startedAt = Date.now();
-        while (true) {
-          const task = await reportApi.getTask(taskId);
-          if (task?.status === 'FAILED') {
-            const failedMsg = task?.failed?.[columnSn];
-            throw new Error(failedMsg || '任务执行失败');
-          }
-          if (task?.status === 'SUCCESS') {
-            break;
-          }
-          if (Date.now() - startedAt > 5 * 60 * 1000) {
-            throw new Error('生成超时，请稍后在列表中刷新确认');
-          }
-          await new Promise((r) => setTimeout(r, 1000));
-        }
+        // 提交成功即恢复可操作，不阻塞页面等待任务完成
 
-        toast({
-          title: '生成完成',
-          description: `报告 ${columnSn} 已重新生成`,
-        });
-
-        await fetchReports(pageNum, searchParams);
         setGenerateDialogOpen(false);
         setExistenceInfo(null);
         setGenerateTarget(null);
+        setGenerating(false);
+
+        // 后台轮询任务状态（不 await，不影响交互）
+        const startedAt = Date.now();
+        const poll = async () => {
+          try {
+            const task = await reportApi.getTask(taskId);
+            if (task?.status === 'FAILED') {
+              const failedMsg = task?.failed?.[columnSn];
+              toast({
+                title: '生成失败',
+                description: failedMsg || `报告 ${columnSn} 生成失败`,
+                variant: 'destructive',
+              });
+              return;
+            }
+            if (task?.status === 'SUCCESS') {
+              toast({
+                title: '生成完成',
+                description: `报告 ${columnSn} 已生成完成`,
+              });
+              fetchReports(pageNum, searchParams);
+              return;
+            }
+            if (Date.now() - startedAt > 5 * 60 * 1000) {
+              toast({
+                title: '生成超时',
+                description: `报告 ${columnSn} 生成时间较长，请稍后手动刷新列表确认`,
+                variant: 'destructive',
+              });
+              return;
+            }
+            taskPollTimersRef.current[taskId] = window.setTimeout(poll, 1000);
+          } catch (e) {
+            console.error(`【报告查询】查询任务失败, taskId=${taskId}, columnSn=${columnSn}`, e);
+            toast({
+              title: '任务状态查询失败',
+              description: `报告 ${columnSn} 已在后台生成，可稍后刷新列表确认`,
+              variant: 'destructive',
+            });
+          }
+        };
+
+        taskPollTimersRef.current[taskId] = window.setTimeout(poll, 500);
       } catch (error) {
-        console.error('生成报告失败:', error);
-        const backendMsg = error?.response?.data?.message;
-        const errorMessage = backendMsg || (error instanceof Error ? error.message : '无法生成报告');
-        toast({
-          title: '生成失败',
-          description: errorMessage,
-          variant: 'destructive',
-        });
+        console.error(`【报告查询】生成报告失败, columnSn=${columnSn}, mode=${mode}`,
+          error);
+        showErrorToast(toast, { title: '生成失败', description: '生成失败，请稍后重试' });
       } finally {
         setGenerating(false);
       }
@@ -371,14 +398,9 @@ export default function QueryReportsPage(props) {
         }
         await doGenerateReport(columnSn, 'BACKUP_OVERWRITE');
       } catch (error) {
-        console.error('检查报告失败:', error);
-        const backendMsg = error?.response?.data?.message;
-        const errorMessage = backendMsg || (error instanceof Error ? error.message : '无法检查报告状态');
-        toast({
-          title: '操作失败',
-          description: errorMessage,
-          variant: 'destructive',
-        });
+        console.error(`【报告查询】检查报告失败, columnSn=${report?.columnSn || ''}`,
+          error);
+        showErrorToast(toast, { title: '操作失败', description: '无法检查报告状态，请稍后重试' });
       }
     },
     [doGenerateReport, toast]
@@ -471,6 +493,19 @@ export default function QueryReportsPage(props) {
     fetchReports(1, searchParams);
   }, []);
 
+  // 清理后台轮询定时器，避免页面卸载后继续请求
+  useEffect(() => {
+    return () => {
+      const timers = taskPollTimersRef.current || {};
+      Object.values(timers).forEach((t) => {
+        if (t) {
+          window.clearTimeout(t);
+        }
+      });
+      taskPollTimersRef.current = {};
+    };
+  }, []);
+
   return <div style={style} className="min-h-screen bg-gray-50">
       {/* 顶部导航 */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -552,10 +587,9 @@ export default function QueryReportsPage(props) {
               </div>
             ) : (
               <ReportTable
-                reports={reports}
+                reports={currentReports}
                 selectedReports={selection.selectedItems}
-                expandedRows={expand.expandedItems}
-                onSelectReport={(columnSn) => selection.toggleSelection(columnSn)}
+                onSelectReport={(sn) => selection.toggleSelection(sn)}
                 onSelectAll={(checked) =>
                   selection.toggleSelectAll(
                     currentReports.map((r) => ({ id: r.columnSn })),
@@ -565,6 +599,7 @@ export default function QueryReportsPage(props) {
                 onPreview={handlePreview}
                 onGenerate={handleGenerate}
                 onDownload={handleDownload}
+                onDelete={handleDeleteReport}
               />
             )}
           </CardContent>
@@ -624,10 +659,13 @@ export default function QueryReportsPage(props) {
                   className="w-full flex-1 min-h-0 border-0"
                   title="报告预览"
                   onLoad={() => {
-                    console.log('报告预览已加载');
+                    if (import.meta.env.DEV) {
+                      console.log('报告预览已加载');
+                    }
                   }}
                   onError={(e) => {
-                    console.error('预览加载失败:', e);
+                    console.error(`【报告查询】预览加载失败, columnSn=${previewColumnSn || ''}`,
+                      e);
                   }}
                 />
               </div>
@@ -639,7 +677,6 @@ export default function QueryReportsPage(props) {
       <Dialog
         open={generateDialogOpen}
         onOpenChange={(open) => {
-          if (generating) return;
           setGenerateDialogOpen(open);
           if (!open) {
             setExistenceInfo(null);
@@ -672,14 +709,12 @@ export default function QueryReportsPage(props) {
             </Button>
             <Button
               onClick={() => doGenerateReport(generateTarget?.columnSn, 'BACKUP_OVERWRITE')}
-              disabled={generating}
             >
-              {generating ? '处理中...' : '备份后覆盖（推荐）'}
+              备份后覆盖（推荐）
             </Button>
             <Button
               variant="secondary"
               onClick={() => doGenerateReport(generateTarget?.columnSn, 'OVERWRITE_ONLY')}
-              disabled={generating}
             >
               仅覆盖最新（不备份）
             </Button>
@@ -690,14 +725,12 @@ export default function QueryReportsPage(props) {
                 if (!ok) return;
                 doGenerateReport(generateTarget?.columnSn, 'PURGE_AND_OVERWRITE');
               }}
-              disabled={generating}
             >
               清空历史后覆盖（危险）
             </Button>
             <Button
               variant="outline"
               onClick={() => setGenerateDialogOpen(false)}
-              disabled={generating}
             >
               取消
             </Button>

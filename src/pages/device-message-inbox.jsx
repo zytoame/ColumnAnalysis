@@ -30,6 +30,7 @@ import {
 } from '@/components/ui';
 import { ArrowLeft, Loader2, Wrench } from 'lucide-react';
 import deviceMessageInboxApi from '@/api/deviceMessageInbox';
+import { showErrorToast } from '@/utils/toast';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: '全部' },
@@ -273,6 +274,15 @@ export default function DeviceMessageInboxPage(props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const statusLabelMap = useMemo(() => {
+    const map = {};
+    for (const o of STATUS_OPTIONS) {
+      if (!o?.value || o.value === 'all') continue;
+      map[o.value] = o.label;
+    }
+    return map;
+  }, []);
+
   const [pageNum, setPageNum] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -322,11 +332,7 @@ export default function DeviceMessageInboxPage(props) {
           setSelected(records[0]);
         }
       } catch (e) {
-        toast({
-          title: '加载失败',
-          description: e?.message || '无法加载收件箱列表',
-          variant: 'destructive',
-        });
+        showErrorToast(toast, { title: '加载失败', description: '无法加载收件箱列表，请稍后重试' });
       } finally {
         setLoading(false);
       }
@@ -579,11 +585,7 @@ export default function DeviceMessageInboxPage(props) {
       // 刷新列表并保持当前页
       await fetchList(pageNum);
     } catch (e) {
-      toast({
-        title: '保存失败',
-        description: e?.message || '保存提交失败',
-        variant: 'destructive',
-      });
+      showErrorToast(toast, { title: '保存失败', description: '保存失败，请稍后重试' });
     } finally {
       setSaving(false);
     }
@@ -789,13 +791,14 @@ export default function DeviceMessageInboxPage(props) {
                 <TableBody>
                   {list.map((row) => {
                     const isActive = selected?.id === row.id;
+                    const statusLabel = statusLabelMap[row.status] || row.status;
                     return (
                       <TableRow
                         key={row.id}
                         className={isActive ? 'bg-blue-50 cursor-pointer' : 'cursor-pointer'}
                         onClick={() => setSelected(row)}
                       >
-                        <TableCell className="text-xs">{row.status}</TableCell>
+                        <TableCell className="text-xs">{statusLabel}</TableCell>
                         <TableCell className="text-xs">{row.mode}</TableCell>
                         <TableCell className="text-xs">{row.columnSn}</TableCell>
                       </TableRow>
