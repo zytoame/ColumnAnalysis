@@ -13,10 +13,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui';
-import { ArrowLeft, Database } from 'lucide-react';
-import { AntdTag } from '@/components/AntdTag.jsx';
-import { getUserTypeLabel } from '@/utils/format';
-import { USER_TYPES } from '@/constants';
 import snMappingApi from '@/api/snMapping';
 import { showErrorToast } from '@/utils/toast';
 
@@ -24,28 +20,11 @@ export default function SnMappingManagePage(props) {
   const { $w, style } = props;
   const { toast } = useToast();
 
-  const currentUser = useMemo(
-    () => ({
-      name: '管理员',
-      type: USER_TYPES.ADMIN,
-    }),
-    [],
-  );
-
   const fileRef = useRef(null);
 
   const [file, setFile] = useState(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState(null);
-
-  const handleBackToMain = useCallback(() => {
-    $w?.utils.navigateTo({
-      pageId: 'main',
-      params: {
-        from: 'sn-mapping-manage',
-      },
-    });
-  }, [$w]);
 
   const resetFileInput = useCallback(() => {
     if (fileRef.current) {
@@ -94,27 +73,15 @@ export default function SnMappingManagePage(props) {
   }, [file, resetFileInput, toast]);
 
   return (
-    <div style={style} className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm" onClick={handleBackToMain}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              返回首页
-            </Button>
-            <Database className="w-8 h-8 text-blue-600" />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">SN映射管理</h1>
-              <p className="text-sm text-gray-500">上传Excel导入成品序列号与自编序列号映射</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <AntdTag label={getUserTypeLabel(currentUser.type)} color="sky" showDot={false} />
-          </div>
+    <div style={style} className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">SN映射管理</h1>
+          <div className="mt-1 text-sm text-slate-500">上传Excel导入成品序列号与自编序列号映射</div>
         </div>
       </div>
 
-      <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>上传映射表（xlsx）</CardTitle>
@@ -165,9 +132,9 @@ export default function SnMappingManagePage(props) {
                 {Array.isArray(result.errors) && result.errors.length > 0 && (
                   <div>
                     <div className="font-medium text-gray-900">错误明细</div>
-                    <div className="mt-2 max-h-72 overflow-auto rounded bg-gray-50 p-2">
+                    <div className="mt-2 max-h-72 overflow-auto rounded bg-secondary p-2">
                       {result.errors.map((it, idx) => (
-                        <div key={idx} className="text-xs text-red-700">
+                        <div key={idx} className="text-xs text-foreground">
                           {it}
                         </div>
                       ))}
@@ -198,7 +165,7 @@ export default function SnMappingManagePage(props) {
                               <TableCell>{row?.productSn ?? '-'}</TableCell>
                               <TableCell>{row?.columnSn ?? '-'}</TableCell>
                               <TableCell>
-                                <span className={row?.success ? 'text-green-700' : 'text-red-700'}>
+                                <span className={row?.success ? 'text-primary' : 'text-foreground'}>
                                   {row?.success ? '成功' : '失败'}
                                 </span>
                               </TableCell>

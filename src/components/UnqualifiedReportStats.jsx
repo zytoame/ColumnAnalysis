@@ -10,41 +10,43 @@ export function UnqualifiedReportStats({
   todayReports,
   thisWeekReports
 }) {
-  return <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+  return (
+    <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">不合格总数</p>
-              <p className="text-2xl font-bold text-red-600">{totalReports}</p>
+              <p className="text-sm text-muted-foreground">不合格总数</p>
+              <p className="text-2xl font-bold text-primary">{totalReports}</p>
             </div>
-            <AlertTriangle className="w-8 h-8 text-red-400" />
+            <AlertTriangle className="h-8 w-8 text-primary/70" />
           </div>
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">今日新增</p>
-              <p className="text-2xl font-bold text-orange-600">{todayReports}</p>
+              <p className="text-sm text-muted-foreground">今日新增</p>
+              <p className="text-2xl font-bold text-primary">{todayReports}</p>
             </div>
-            <Calendar className="w-8 h-8 text-orange-400" />
+            <Calendar className="h-8 w-8 text-primary/70" />
           </div>
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">本周新增</p>
-              <p className="text-2xl font-bold text-yellow-600">{thisWeekReports}</p>
+              <p className="text-sm text-muted-foreground">本周新增</p>
+              <p className="text-2xl font-bold text-primary">{thisWeekReports}</p>
             </div>
-            <TrendingDown className="w-8 h-8 text-yellow-400" />
+            <TrendingDown className="h-8 w-8 text-primary/70" />
           </div>
         </CardContent>
       </Card>
-    </div>;
+    </div>
+  );
 }

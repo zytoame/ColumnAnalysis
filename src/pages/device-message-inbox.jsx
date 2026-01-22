@@ -28,7 +28,7 @@ import {
   Textarea,
   useToast,
 } from '@/components/ui';
-import { ArrowLeft, Loader2, Wrench } from 'lucide-react';
+import { Loader2, Wrench } from 'lucide-react';
 import deviceMessageInboxApi from '@/api/deviceMessageInbox';
 import { showErrorToast } from '@/utils/toast';
 
@@ -301,10 +301,6 @@ export default function DeviceMessageInboxPage(props) {
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmDiff, setConfirmDiff] = useState([]);
-
-  const handleBackToMain = useCallback(() => {
-    $w?.utils.navigateTo({ pageId: 'main', params: {} });
-  }, [$w]);
 
   const fetchList = useCallback(
     async (page = pageNum) => {
@@ -665,7 +661,7 @@ export default function DeviceMessageInboxPage(props) {
             if (v && typeof v === 'object' && !Array.isArray(v)) {
               const title = FIELD_LABELS[k] || k;
               return (
-                <div key={nextPrefix} className="border rounded-md p-3 bg-gray-50">
+                <div key={nextPrefix} className="border rounded-md p-3 bg-secondary">
                   <div className="text-sm font-medium text-gray-900 mb-3">{title}</div>
                   {renderGroupFields(v, nextPrefix)}
                 </div>
@@ -698,19 +694,13 @@ export default function DeviceMessageInboxPage(props) {
   );
 
   return (
-    <div style={style} className="min-h-screen bg-gray-50">
-      {/* 顶部 */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Button variant="ghost" size="icon" onClick={handleBackToMain}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">设备消息收件箱</h1>
-              <p className="text-sm text-gray-500">查看 raw 消息并进行补录/重算</p>
-            </div>
-          </div>
+    <div style={style} className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">设备消息收件箱</h1>
+          <div className="mt-1 text-sm text-slate-500">查看 raw 消息并进行补录/重算</div>
+        </div>
+        <div className="shrink-0">
           <Button onClick={() => fetchList(pageNum)} disabled={loading}>
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             刷新
@@ -718,7 +708,7 @@ export default function DeviceMessageInboxPage(props) {
         </div>
       </div>
 
-      <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* 左侧：列表 */}
         <Card className="lg:col-span-1">
           <CardHeader>
@@ -795,7 +785,7 @@ export default function DeviceMessageInboxPage(props) {
                     return (
                       <TableRow
                         key={row.id}
-                        className={isActive ? 'bg-blue-50 cursor-pointer' : 'cursor-pointer'}
+                        className={isActive ? 'bg-secondary cursor-pointer' : 'cursor-pointer'}
                         onClick={() => setSelected(row)}
                       >
                         <TableCell className="text-xs">{statusLabel}</TableCell>
@@ -866,7 +856,7 @@ export default function DeviceMessageInboxPage(props) {
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <div className="max-h-[260px] overflow-auto border rounded-md p-3 bg-gray-50">
+          <div className="max-h-[260px] overflow-auto border rounded-md p-3 bg-secondary">
             {confirmDiff.length ? (
               <div className="space-y-2">
                 {confirmDiff.map((d) => (

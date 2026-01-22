@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Button, Card, CardContent, CardHeader, CardTitle, useToast,
   Pagination, PaginationContent, PaginationEllipsis, PaginationItem,
   PaginationLink, PaginationNext, PaginationPrevious,
-  Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
-import { FileText, ArrowLeft, Plus, Search, Download, Loader2, User } from 'lucide-react';
-import { AntdTag } from '@/components/AntdTag.jsx';
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui';
+import { FileText, ArrowLeft, Plus, Search, Download, Loader2 } from 'lucide-react';
 import { ReportTable } from '@/components/ReportTable';
 import { ReportStats } from '@/components/ReportStats';
 import { SearchFilters } from '@/components/SearchFilters';
@@ -13,8 +14,7 @@ import { useSelection } from '@/hooks/useSelection';
 import { useExpand } from '@/hooks/useExpand';
 import reportApi from '@/api/report';
 import { generatePageNumbers } from '@/utils/pagination';
-import { getUserTypeLabel } from '@/utils/format';
-import { USER_TYPES, TEST_TYPES, PAGINATION, TEST_RESULTS } from '@/constants';
+import { TEST_TYPES, PAGINATION, TEST_RESULTS } from '@/constants';
 import { showErrorToast } from '@/utils/toast';
 
 
@@ -35,6 +35,11 @@ export default function QueryReportsPage(props) {
   const [previewBlobUrl, setPreviewBlobUrl] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
+
+  // 二次确认（替换 window.confirm）
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
   const [previewColumnSn, setPreviewColumnSn] = useState('');
 
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
@@ -73,15 +78,6 @@ export default function QueryReportsPage(props) {
   // --- hooks ---
   const selection = useSelection();
   const expand = useExpand();
-  
-  // 当前用户信息
-  const currentUser = useMemo(
-    () => ({
-      name: '管理员',
-      type: USER_TYPES.ADMIN,
-    }),
-    []
-  );
 
   // 分页状态
   const [pageNum, setPageNum] = useState(1);
@@ -205,32 +201,37 @@ export default function QueryReportsPage(props) {
     },
   );
 
-  const handleDeleteReport = useCallback(
-    async (report) => {
-      try {
-        const id = report?.id;
-        if (!id) {
-          throw new Error('缺少报告id');
-        }
+  const handleDeleteReport = useCallback((report) => {
+    setDeleteTarget(report || null);
+    setDeleteConfirmOpen(true);
+  }, []);
 
-        const label = (report?.productSn || report?.columnSn || '').toString();
-        const ok = window.confirm(`确认删除报告 ${label} 吗？\n\n删除后将同时删除报告文件，且不可恢复。`);
-        if (!ok) return;
-
-        await reportApi.deleteReport(id);
-        toast({
-          title: '删除成功',
-          description: `报告 ${label} 已删除`,
-        });
-        await fetchReports(pageNum, searchParams);
-      } catch (error) {
-        console.error(`【报告查询】删除失败, reportId=${report?.id ?? ''}, label=${(report?.productSn || report?.columnSn || '').toString()}`,
-          error);
-        showErrorToast(toast, { title: '删除失败', description: '删除失败，请稍后重试' });
+  const confirmDeleteReport = useCallback(async () => {
+    const report = deleteTarget;
+    try {
+      const id = report?.id;
+      if (!id) {
+        throw new Error('缺少报告id');
       }
-    },
-    [fetchReports, pageNum, searchParams, toast]
-  );
+
+      const label = (report?.productSn || report?.columnSn || '').toString();
+      await reportApi.deleteReport(id);
+      toast({
+        title: '删除成功',
+        description: `报告 ${label} 已删除`,
+      });
+      await fetchReports(pageNum, searchParams);
+    } catch (error) {
+      console.error(
+        `【报告查询】删除失败, reportId=${report?.id ?? ''}, label=${(report?.productSn || report?.columnSn || '').toString()}`,
+        error
+      );
+      showErrorToast(toast, { title: '删除失败', description: '删除失败，请稍后重试' });
+    } finally {
+      setDeleteConfirmOpen(false);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, fetchReports, pageNum, searchParams, toast]);
 
   // 批量下载报告
   const handleBatchDownload = useCallback(async () => {
@@ -243,15 +244,42 @@ export default function QueryReportsPage(props) {
       return;
     }
     try {
-      // 获取选中报告的 columnSn 列表
       const columnSns = selection.selectedItems;
+      const submitRes = await reportApi.submitZipExistingTask(columnSns);
+      const taskId = submitRes?.taskId;
+      if (!taskId) {
+        throw new Error('未获取到任务ID');
+      }
 
-      // 调用批量下载接口
-      const response = await reportApi.downloadBatchReports(columnSns);
+      toast({
+        title: '已提交批量打包任务',
+        description: `任务已提交，正在后台打包 ${columnSns.length} 个已生成报告`,
+      });
 
+      const startedAt = Date.now();
+      let task;
+      while (true) {
+        task = await reportApi.getTask(taskId);
+        if (task?.status === 'FAILED' || task?.status === 'SUCCESS') {
+          break;
+        }
+        if (Date.now() - startedAt > 15 * 60 * 1000) {
+          throw new Error('打包超时，请稍后在任务中重试');
+        }
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+
+      if (task?.status === 'FAILED') {
+        toast({
+          title: '批量打包失败',
+          description: '批量打包失败，请稍后重试',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const response = await reportApi.downloadTaskZip(taskId);
       const blob = new Blob([response.data], { type: 'application/zip' });
-
-      // 创建下载链接
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -261,13 +289,22 @@ export default function QueryReportsPage(props) {
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      // 显示下载结果信息
+      const failed = task?.failed || {};
+      const failedKeys = Object.keys(failed);
+      if (failedKeys.length > 0) {
+        const sample = failedKeys.slice(0, 3).join(', ');
+        toast({
+          title: '部分报告未打包',
+          description: `成功 ${task?.success ?? 0} 个，失败 ${failedKeys.length} 个（如：${sample}${failedKeys.length > 3 ? ' ...' : ''}）`,
+          variant: 'destructive',
+        });
+      }
+
       toast({
         title: '批量下载完成',
         description: `已开始下载 ${columnSns.length} 个报告的压缩包`,
       });
 
-      // 清空选择
       selection.clearSelection();
     } catch (error) {
       console.error(`【报告查询】批量下载失败, count=${selection.selectedItems.length}`,
@@ -390,13 +427,8 @@ export default function QueryReportsPage(props) {
         const columnSn = report?.columnSn;
         if (!columnSn) return;
         setGenerateTarget(report);
-        const info = await reportApi.checkReportExistence(columnSn);
-        if (info?.exists) {
-          setExistenceInfo(info);
-          setGenerateDialogOpen(true);
-          return;
-        }
-        await doGenerateReport(columnSn, 'BACKUP_OVERWRITE');
+        setExistenceInfo(null);
+        setGenerateDialogOpen(true);
       } catch (error) {
         console.error(`【报告查询】检查报告失败, columnSn=${report?.columnSn || ''}`,
           error);
@@ -506,47 +538,41 @@ export default function QueryReportsPage(props) {
     };
   }, []);
 
-  return <div style={style} className="min-h-screen bg-gray-50">
-      {/* 顶部导航 */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm" onClick={handleBackToMain} className="flex items-center gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              返回主页
-            </Button>
-            <FileText className="w-8 h-8 text-blue-600" />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">报告查询</h1>
-              <p className="text-sm text-gray-500">查询和管理层析柱检测报告</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <AntdTag
-              label={getUserTypeLabel(currentUser.type)}
-              color="sky"
-              showDot={false}
-              prefix={<User className="w-3 h-3 mr-1" />}
-            />
-          </div>
+  return (
+    <div style={style} className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">报告查询</h1>
+          <div className="mt-1 text-sm text-slate-500">查询和管理层析柱检测报告</div>
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="space-y-6">
         {/* 统计概览 */}
-        <ReportStats totalReports={reports.length} qualifiedCount={qualifiedCount} unqualifiedCount={unqualifiedCount} todayReports={todayReports} />
+        <ReportStats
+          totalReports={reports.length}
+          qualifiedCount={qualifiedCount}
+          unqualifiedCount={unqualifiedCount}
+          todayReports={todayReports}
+        />
 
         {/* 搜索区域 */}
-        <SearchFilters searchParams={searchParams} setSearchParams={setSearchParams} onSearch={handleSearch} onReset={handleReset} loading={loading} />
+        <SearchFilters
+          searchParams={searchParams}
+          setSearchParams={setSearchParams}
+          onSearch={handleSearch}
+          onReset={handleReset}
+          loading={loading}
+        />
 
         {/* 批量操作 */}
         {selection.selectedItems.length > 0 && (
-          <Card className="mb-6 bg-blue-50 border-blue-200">
+          <Card className="mb-6 bg-secondary border-border">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <FileText className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-900">
+                  <FileText className="w-5 h-5 text-primary" />
+                  <span className="text-sm font-medium text-foreground">
                     已选择 {selection.selectedItems.length} 个报告
                   </span>
                 </div>
@@ -554,7 +580,11 @@ export default function QueryReportsPage(props) {
                   <Button variant="outline" size="sm" onClick={selection.clearSelection}>
                     取消选择
                   </Button>
-                  <Button size="sm" onClick={handleBatchDownload} className="bg-blue-600 hover:bg-blue-700">
+                  <Button
+                    size="sm"
+                    onClick={handleBatchDownload}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
                     <Download className="w-4 h-4 mr-2" />
                     批量下载
                   </Button>
@@ -609,17 +639,15 @@ export default function QueryReportsPage(props) {
         {total > 0 && <div className="mt-4">{renderPagination}</div>}
 
         {/* 空状态 */}
-        {!loading && reports.length === 0 && <Card className="text-center py-12">
+        {!loading && reports.length === 0 && (
+          <Card className="text-center py-12">
             <CardContent>
               <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">暂无报告</h3>
               <p className="text-gray-500 mb-4">还没有生成任何检测报告</p>
-              {/* <Button onClick={handleGenerateReport} className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                生成第一个报告
-              </Button> */}
             </CardContent>
-          </Card>}
+          </Card>
+        )}
       </div>
 
       {/* 报告预览对话框 */}
@@ -649,9 +677,9 @@ export default function QueryReportsPage(props) {
               <div className="flex items-center justify-center py-12">
                 <span className="text-gray-500">{previewError}</span>
               </div>
-            ) : previewUrl && (
+            ) : previewUrl ? (
               <div className="w-full h-full flex flex-col min-h-0">
-                <div className="text-sm text-gray-600 mb-2 p-2 bg-blue-50 rounded">
+                <div className="text-sm text-gray-600 mb-2 rounded bg-secondary p-2">
                   如果预览不显示，请尝试下载文件进行查看。
                 </div>
                 <iframe
@@ -664,16 +692,19 @@ export default function QueryReportsPage(props) {
                     }
                   }}
                   onError={(e) => {
-                    console.error(`【报告查询】预览加载失败, columnSn=${previewColumnSn || ''}`,
-                      e);
+                    console.error(
+                      `【报告查询】预览加载失败, columnSn=${previewColumnSn || ''}`,
+                      e
+                    );
                   }}
                 />
               </div>
-            )}
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>
 
+      {/* 报告生成对话框 */}
       <Dialog
         open={generateDialogOpen}
         onOpenChange={(open) => {
@@ -690,13 +721,16 @@ export default function QueryReportsPage(props) {
           </DialogHeader>
           <div className="space-y-3 text-sm text-gray-600">
             <div>
-              当前层析柱：<span className="font-medium text-gray-900">{generateTarget?.columnSn}</span>
+              当前层析柱：
+              <span className="font-medium text-gray-900">{generateTarget?.columnSn}</span>
             </div>
             <div>
-              当前报告ID：<span className="font-medium text-gray-900">{existenceInfo?.currentReportId}</span>
+              当前报告ID：
+              <span className="font-medium text-gray-900">{existenceInfo?.currentReportId}</span>
             </div>
             <div>
-              历史备份数量：<span className="font-medium text-gray-900">{existenceInfo?.backupCount ?? 0}</span>
+              历史备份数量：
+              <span className="font-medium text-gray-900">{existenceInfo?.backupCount ?? 0}</span>
             </div>
           </div>
           <div className="flex flex-col gap-2 pt-2">
@@ -707,9 +741,7 @@ export default function QueryReportsPage(props) {
             >
               预览当前报告
             </Button>
-            <Button
-              onClick={() => doGenerateReport(generateTarget?.columnSn, 'BACKUP_OVERWRITE')}
-            >
+            <Button onClick={() => doGenerateReport(generateTarget?.columnSn, 'BACKUP_OVERWRITE')}>
               备份后覆盖（推荐）
             </Button>
             <Button
@@ -720,23 +752,61 @@ export default function QueryReportsPage(props) {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
-                const ok = window.confirm('确认清空所有历史备份后再覆盖生成？该操作不可恢复。');
-                if (!ok) return;
-                doGenerateReport(generateTarget?.columnSn, 'PURGE_AND_OVERWRITE');
-              }}
+              onClick={() => setPurgeConfirmOpen(true)}
             >
               清空历史后覆盖（危险）
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => setGenerateDialogOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setGenerateDialogOpen(false)}>
               取消
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-    </div>;
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除报告？</AlertDialogTitle>
+            <AlertDialogDescription>
+              删除后将同时删除报告文件，且不可恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="text-sm text-muted-foreground">
+            报告：
+            <span className="font-medium text-foreground">
+              {(deleteTarget?.productSn || deleteTarget?.columnSn || '').toString() || '-'}
+            </span>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteReport}>确认删除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={purgeConfirmOpen} onOpenChange={setPurgeConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认清空历史后覆盖生成？</AlertDialogTitle>
+            <AlertDialogDescription>该操作不可恢复。</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="text-sm text-muted-foreground">
+            当前层析柱：
+            <span className="font-medium text-foreground">{generateTarget?.columnSn || '-'}</span>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setPurgeConfirmOpen(false);
+                doGenerateReport(generateTarget?.columnSn, 'PURGE_AND_OVERWRITE');
+              }}
+            >
+              确认执行
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
 }

@@ -31,11 +31,8 @@ import {
   TableRow,
   useToast,
 } from '@/components/ui';
-import { ArrowLeft, Database, Loader2, Pencil, Plus, Search, Trash2, User } from 'lucide-react';
+import { Database, Loader2, Pencil, Plus, Search, Trash2, User } from 'lucide-react';
 import { BaseSearchFilters } from '@/components/BaseSearchFilters.jsx';
-import { AntdTag } from '@/components/AntdTag.jsx';
-import { getUserTypeLabel } from '@/utils/format';
-import { USER_TYPES } from '@/constants';
 import columnApi from '@/api/column';
 import { showErrorToast } from '@/utils/toast';
 
@@ -63,14 +60,6 @@ const EMPTY_FORM = {
 export default function StandardManagePage(props) {
   const { $w, style } = props;
   const { toast } = useToast();
-
-  const currentUser = useMemo(
-    () => ({
-      name: '管理员',
-      type: USER_TYPES.ADMIN,
-    }),
-    [],
-  );
 
   const [loading, setLoading] = useState(false);
   const [standards, setStandards] = useState([]);
@@ -116,13 +105,6 @@ export default function StandardManagePage(props) {
     ],
     [],
   );
-
-  const handleBackToMain = useCallback(() => {
-    $w?.utils.navigateTo({
-      pageId: 'main',
-      params: {},
-    });
-  }, [$w]);
 
   const toNumberOrNull = useCallback((v) => {
     const s = String(v ?? '').trim();
@@ -352,37 +334,15 @@ export default function StandardManagePage(props) {
   }, [deletingStandard?.id, fetchStandards, searchParams, toast]);
 
   return (
-    <div style={style} className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBackToMain}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              返回主页
-            </Button>
-            <Database className="w-8 h-8 text-blue-600" />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">标准/模板管理</h1>
-              <p className="text-sm text-gray-500">新增、编辑与维护层析柱标准模板</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <AntdTag
-              label={getUserTypeLabel(currentUser.type)}
-              color="sky"
-              showDot={false}
-              prefix={<User className="w-3 h-3 mr-1" />}
-            />
-          </div>
+    <div style={style} className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">标准/模板管理</h1>
+          <div className="mt-1 text-sm text-slate-500">新增、编辑与维护层析柱标准模板</div>
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="space-y-6">
         <BaseSearchFilters
           title="查询条件"
           fields={fields}
@@ -401,7 +361,7 @@ export default function StandardManagePage(props) {
                 标准列表
               </span>
               <div className="flex items-center gap-2">
-                <Button onClick={openCreateDialog} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={openCreateDialog} className="bg-primary text-primary-foreground hover:bg-primary/90">
                   <Plus className="w-4 h-4 mr-2" />
                   新增标准
                 </Button>
@@ -439,7 +399,7 @@ export default function StandardManagePage(props) {
                       </TableRow>
                     ) : (
                       standards.map((s) => (
-                        <TableRow key={s.id} className="hover:bg-gray-50">
+                        <TableRow key={s.id} className="hover:bg-secondary">
                           <TableCell className="font-medium">{s.columnPrefix}</TableCell>
                           <TableCell>{s.standardType || '-'}</TableCell>
                           <TableCell>{s.seconds == null ? '-' : s.seconds}</TableCell>
@@ -483,7 +443,7 @@ export default function StandardManagePage(props) {
         </Card>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
             <DialogHeader>
               <DialogTitle>{editingStandard ? '编辑标准' : '新增标准'}</DialogTitle>
             </DialogHeader>
@@ -607,7 +567,7 @@ export default function StandardManagePage(props) {
                 <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
                   取消
                 </Button>
-                <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={handleSave} disabled={saving} className="bg-primary text-primary-foreground hover:bg-primary/90">
                   {saving ? (
                     <>
                       <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin" />

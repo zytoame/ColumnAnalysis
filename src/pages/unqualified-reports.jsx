@@ -6,11 +6,9 @@ import { DetailModal } from '@/components/DetailModal';
 import { UnqualifiedReportTable } from '@/components/UnqualifiedReportTable';
 import { UnqualifiedReportStats } from '@/components/UnqualifiedReportStats';
 import { UnqualifiedSearchFilters } from '@/components/UnqualifiedSearchFilters';
-import { AntdTag } from '@/components/AntdTag.jsx';
 import { useSelection } from '@/hooks/useSelection';
 import { generatePageNumbers } from '@/utils/pagination';
-import { getUserTypeLabel } from '@/utils/format';
-import { USER_TYPES, PAGINATION, DATE_RANGES, TEST_TYPES, CONCLUSION_STATUS } from '@/constants';
+import { PAGINATION, DATE_RANGES, TEST_TYPES, CONCLUSION_STATUS } from '@/constants';
 import columnApi from '@/api/column';
 import { showErrorToast } from '@/utils/toast';
 
@@ -44,15 +42,6 @@ export default function UnqualifiedReportsPage(props) {
     dateRange: DATE_RANGES.ALL,
   });
   const selection = useSelection();
-
-  // 当前用户信息
-  const currentUser = useMemo(
-    () => ({
-      name: '管理员',
-      type: USER_TYPES.ADMIN,
-    }),
-    [],
-  );
 
   const currentColumns = useMemo(() => filteredColumns, [filteredColumns]);
 
@@ -391,33 +380,15 @@ export default function UnqualifiedReportsPage(props) {
   }, [unqualifiedColumns]);
 
   return (
-    <div style={style} className="min-h-screen bg-gray-50">
-      {/* 顶部导航 */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBackToMain}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              返回主页
-            </Button>
-            <AlertTriangle className="w-8 h-8 text-red-600" />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">不合格层析柱管理</h1>
-              <p className="text-sm text-gray-500">查看和编辑不合格层析柱检测数据</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <AntdTag label={getUserTypeLabel(currentUser.type)} color="sky" showDot={false} />
-          </div>
+    <div style={style} className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">不合格层析柱管理</h1>
+          <div className="mt-1 text-sm text-slate-500">查看和编辑不合格层析柱检测数据</div>
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="space-y-6">
         {/* 统计概览：复用 UnqualifiedReportStats */}
         <UnqualifiedReportStats
           totalReports={stats.total}
@@ -436,12 +407,12 @@ export default function UnqualifiedReportsPage(props) {
 
         {/* 批量操作 */}
         {selection.selectedItems.length > 0 && (
-          <Card className="mb-6 bg-red-50 border-red-200">
+          <Card className="mb-6 bg-secondary border-border">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <FileCheck className="w-5 h-5 text-red-600" />
-                  <span className="text-sm font-medium text-red-900">
+                  <FileCheck className="w-5 h-5 text-primary" />
+                  <span className="text-sm font-medium text-slate-900">
                     已选择 {selection.selectedItems.length} 个层析柱
                   </span>
                 </div>

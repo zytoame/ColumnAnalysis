@@ -8,16 +8,7 @@ import {
 } from '@/components/ui';
 import { FileText, Search, CheckCircle, AlertTriangle, Shield, ArrowRight, Clock, Database, PenTool, Cpu, Wrench } from 'lucide-react';
 import { WorkOrderStats } from '@/components/WorkOrderStats';
-import { AntdTag } from '@/components/AntdTag.jsx';
-import { getUserTypeLabel } from '@/utils/format';
-import { USER_TYPES } from '@/constants';
 import reportApi from '@/api/report';
-
-// 当前用户信息
-const currentUser = {
-  name: '管理员',
-  type: USER_TYPES.ADMIN,
-};
 
 export default function MainPage(props) {
   const { $w, style } = props;
@@ -168,9 +159,9 @@ export default function MainPage(props) {
   // 获取图标背景色
   const getIconBgColor = useCallback((color) => {
     const colorMap = {
-      red: 'bg-red-100 text-red-600',
-      blue: 'bg-blue-100 text-blue-600',
-      green: 'bg-green-100 text-green-600',
+      red: 'bg-secondary text-primary',
+      blue: 'bg-secondary text-primary',
+      green: 'bg-secondary text-primary',
     };
     return colorMap[color] || colorMap.blue;
   }, []);
@@ -188,112 +179,85 @@ export default function MainPage(props) {
   );
 
   return (
-    <div style={style} className="min-h-screen bg-gray-50">
-      {/* 顶部导航 */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <FileText className="w-8 h-8 text-blue-600" />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">报告管理系统</h1>
-              <p className="text-sm text-gray-500">欢迎回来，{currentUser.name}</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <AntdTag
-              label={getUserTypeLabel(currentUser.type)}
-              color="sky"
-              showDot={false}
-              prefix={<Shield className="w-3 h-3 mr-1" />}
-            />
-          </div>
-        </div>
+    <div style={style} className="space-y-6">
+      
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <Card className="border-slate-200/70 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">报告总数</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold text-primary">{statistics.totalReports}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200/70 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">已审核</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold text-primary">{statistics.approvedReports}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200/70 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">待审核</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold text-primary">{statistics.pendingReports}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200/70 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">不合格</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold text-primary">{statistics.unqualifiedReports}</div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="p-6">
-        {/* 功能模块 */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">功能模块</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Card className="border-slate-200/70 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base">工单完成量统计</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <WorkOrderStats />
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="border-slate-200/70 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base">快捷入口</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-3">
             {functionModules.map((module) => {
               const Icon = module.icon;
               return (
-                <Card
+                <button
                   key={module.id}
-                  className="hover:shadow-lg transition-shadow duration-200 cursor-pointer border-2 hover:border-blue-300"
+                  type="button"
+                  className="group flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50/30"
                   onClick={() => handleNavigateToPage(module.pageId, module.title)}
                 >
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between">
-                      <div className={`p-3 rounded-lg ${getIconBgColor(module.color)}`}>
-                        <Icon className="w-6 h-6" />
-                      </div>
-                      <ArrowRight className="w-5 h-5 text-gray-400" />
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${getIconBgColor(module.color)}`}>
+                      <Icon className="h-5 w-5" />
                     </div>
-                    <CardTitle className="text-lg">{module.title}</CardTitle>
-                    <p className="text-sm text-gray-600 mt-2">{module.description}</p>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    {/* 统计信息 */}
-                    <div className="grid grid-cols-3 gap-2">
-                      {Object.entries(module.stats ?? {}).map(([key, value]) => (
-                        <div key={key} className="text-center">
-                          <p className="text-lg font-semibold text-gray-900">{value}</p>
-                          <p className="text-xs text-gray-500">{statLabelMap[key] || key}</p>
-                        </div>
-                      ))}
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-slate-900">{module.title}</div>
+                      <div className="truncate text-xs text-slate-500">{module.description}</div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:text-emerald-600" />
+                </button>
               );
             })}
-          </div>
-        </div>
-
-        {/* 工单完成量统计 */}
-        <WorkOrderStats />
-
-        {/* 最近活动 */}
-        {/* <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5" />
-              最近活动
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentActivities.length > 0 ? (
-                recentActivities.map((activity, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        activity.type === 'audit'
-                          ? 'bg-green-500'
-                          : activity.type === 'generate'
-                          ? 'bg-blue-500'
-                          : 'bg-orange-500'
-                      }`}
-                    ></div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{activity.title}</p>
-                      <p className="text-xs text-gray-500">{activity.description}</p>
-                    </div>
-                    <span className="text-xs text-gray-500">{activity.time}</span>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Clock className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                  <p>暂无最近活动</p>
-                </div>
-              )}
-            </div>
           </CardContent>
-        </Card> */}
+        </Card>
       </div>
     </div>
   );

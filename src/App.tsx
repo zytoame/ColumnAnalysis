@@ -13,6 +13,7 @@ import {
 import { PageWrapper } from "./components/ui/page-wrapper";
 import { routers } from "./configs/routers";
 import { createBrowserHistory } from "history";
+import { DashboardLayout } from "./layouts/DashboardLayout";
 
 const history = createBrowserHistory();
 window._WEAPPS_HISTORY = history;
@@ -43,7 +44,11 @@ const App: React.FC = () => {
                 <Route
                   key={item.id}
                   path={`/${item.id}`}
-                  element={<PageWrapper id={item.id} Page={item.component} />}
+                  element={
+                    <DashboardLayout>
+                      <PageWrapper id={item.id} Page={item.component} />
+                    </DashboardLayout>
+                  }
                 />
               );
             })}

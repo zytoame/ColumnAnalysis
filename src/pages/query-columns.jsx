@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Card,
   CardContent,
@@ -25,12 +33,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui';
-import { ArrowLeft, Search, Database, Loader2, FileText, Trash2 } from 'lucide-react';
+import { Search, Database, Loader2, FileText, Trash2 } from 'lucide-react';
 import { BaseSearchFilters } from '@/components/BaseSearchFilters.jsx';
-import { AntdTag, ModeTag, StatusTag } from '@/components/AntdTag.jsx';
+import { ModeTag, StatusTag } from '@/components/AntdTag.jsx';
 import { generatePageNumbers } from '@/utils/pagination';
-import { getUserTypeLabel } from '@/utils/format';
-import { USER_TYPES, TEST_TYPES, PAGINATION } from '@/constants';
+import { TEST_TYPES, PAGINATION } from '@/constants';
 import columnApi from '@/api/column';
 import reportApi from '@/api/report';
 import { showErrorToast } from '@/utils/toast';
@@ -38,6 +45,10 @@ import { showErrorToast } from '@/utils/toast';
 export default function QueryColumnsPage(props) {
   const { $w, style } = props;
   const { toast } = useToast();
+
+  // 二次确认（替换 window.confirm）
+  const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
+  const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
 
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -68,14 +79,6 @@ export default function QueryColumnsPage(props) {
     mode: TEST_TYPES.ALL,
     status: 'all',
   });
-
-  const currentUser = useMemo(
-    () => ({
-      name: '管理员',
-      type: USER_TYPES.ADMIN,
-    }),
-    [],
-  );
 
   const fields = useMemo(
     () => [
@@ -397,32 +400,15 @@ export default function QueryColumnsPage(props) {
   }, []);
 
   return (
-    <div style={style} className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBackToMain}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              返回主页
-            </Button>
-            <Database className="w-8 h-8 text-blue-600" />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">柱子查询</h1>
-              <p className="text-sm text-gray-500">查询层析柱全量信息</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <AntdTag label={getUserTypeLabel(currentUser.type)} color="sky" showDot={false} />
-          </div>
+    <div style={style} className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">柱子查询</h1>
+          <div className="mt-1 text-sm text-slate-500">查询层析柱全量信息</div>
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="space-y-6">
         <BaseSearchFilters
           title="查询条件"
           fields={fields}
@@ -512,7 +498,7 @@ export default function QueryColumnsPage(props) {
                       </TableRow>
                     ) : (
                       columns.map((c) => (
-                        <TableRow key={c.columnSn} className="hover:bg-gray-50">
+                        <TableRow key={c.columnSn} className="hover:bg-secondary">
                           <TableCell>
                             <Checkbox
                               checked={selectedColumnSns.includes(c.columnSn)}
@@ -571,11 +557,7 @@ export default function QueryColumnsPage(props) {
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => {
-                  const ok = window.confirm('确认清空所有历史备份后再覆盖生成？该操作不可恢复。');
-                  if (!ok) return;
-                  doBatchGenerateReport('PURGE_AND_OVERWRITE');
-                }}
+                onClick={() => setPurgeConfirmOpen(true)}
                 disabled={generating}
               >
                 清空历史后覆盖（危险）
@@ -614,11 +596,7 @@ export default function QueryColumnsPage(props) {
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => {
-                  const ok = window.confirm('确认删除所选柱子全部相关数据（包括报告与文件）？该操作不可恢复。');
-                  if (!ok) return;
-                  doBatchDelete('ALL_WITH_REPORT');
-                }}
+                onClick={() => setDeleteAllConfirmOpen(true)}
                 disabled={deleting}
               >
                 删除全部相关数据（含报告）
@@ -633,6 +611,56 @@ export default function QueryColumnsPage(props) {
             </div>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={purgeConfirmOpen} onOpenChange={setPurgeConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认清空历史后覆盖生成？</AlertDialogTitle>
+              <AlertDialogDescription>该操作不可恢复。</AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="text-sm text-muted-foreground">
+              已选择：
+              <span className="font-medium text-foreground">{selectedColumnSns.length}</span> 条
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setPurgeConfirmOpen(false);
+                  doBatchGenerateReport('PURGE_AND_OVERWRITE');
+                }}
+              >
+                确认执行
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={deleteAllConfirmOpen} onOpenChange={setDeleteAllConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认删除全部相关数据？</AlertDialogTitle>
+              <AlertDialogDescription>
+                将删除所选柱子的相关数据（包括报告与文件），且不可恢复。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="text-sm text-muted-foreground">
+              已选择：
+              <span className="font-medium text-foreground">{selectedColumnSns.length}</span> 条
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setDeleteAllConfirmOpen(false);
+                  doBatchDelete('ALL_WITH_REPORT');
+                }}
+              >
+                确认删除
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {total > 0 && <div className="mt-4">{renderPagination}</div>}
       </div>

@@ -32,10 +32,7 @@ import {
   TableRow,
   useToast,
 } from '@/components/ui';
-import { AntdTag } from '@/components/AntdTag.jsx';
-import { getUserTypeLabel } from '@/utils/format';
-import { USER_TYPES } from '@/constants';
-import { ArrowLeft, Cpu, Loader2, Plug, Plus, RefreshCw, Unplug, Pencil, Trash2 } from 'lucide-react';
+import { Cpu, Loader2, Plug, Plus, RefreshCw, Unplug, Pencil, Trash2 } from 'lucide-react';
 import deviceConfigApi from '@/api/deviceConfig';
 import { showErrorToast } from '@/utils/toast';
 
@@ -49,14 +46,6 @@ const EMPTY_FORM = {
 export default function DeviceConfigPage(props) {
   const { $w, style } = props;
   const { toast } = useToast();
-
-  const currentUser = useMemo(
-    () => ({
-      name: '管理员',
-      type: USER_TYPES.ADMIN,
-    }),
-    [],
-  );
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -72,13 +61,6 @@ export default function DeviceConfigPage(props) {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingMachine, setDeletingMachine] = useState(null);
-
-  const handleBackToMain = useCallback(() => {
-    $w?.utils.navigateTo({
-      pageId: 'main',
-      params: {},
-    });
-  }, [$w]);
 
   const fetchMachines = useCallback(async () => {
     setLoading(true);
@@ -477,27 +459,15 @@ export default function DeviceConfigPage(props) {
   );
 
   return (
-    <div style={style} className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm" onClick={handleBackToMain} className="flex items-center gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              返回主页
-            </Button>
-            <Cpu className="w-8 h-8 text-blue-600" />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">设备连接配置</h1>
-              <p className="text-sm text-gray-500">配置机器 IP/端口/连接模式，并手动连接与断开</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <AntdTag label={getUserTypeLabel(currentUser.type)} color="sky" showDot={false} />
-          </div>
+    <div style={style} className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">设备连接配置</h1>
+          <div className="mt-1 text-sm text-slate-500">配置机器 IP/端口/连接模式，并手动连接与断开</div>
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -507,7 +477,7 @@ export default function DeviceConfigPage(props) {
                   size="sm"
                   onClick={handleBatchConnect}
                   disabled={saving || (selectedIds?.length ?? 0) === 0}
-                  className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2"
                 >
                   <Plug className="w-4 h-4" />
                   批量连接
@@ -526,7 +496,7 @@ export default function DeviceConfigPage(props) {
                   <RefreshCw className="w-4 h-4" />
                   刷新状态
                 </Button>
-                <Button onClick={openCreateDialog} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={openCreateDialog} className="bg-primary text-primary-foreground hover:bg-primary/90">
                   <Plus className="w-4 h-4 mr-2" />
                   添加机器
                 </Button>
@@ -568,7 +538,7 @@ export default function DeviceConfigPage(props) {
                         const active = renderRowActive(m.id);
 
                         return (
-                          <TableRow key={m.id} className="hover:bg-gray-50">
+                          <TableRow key={m.id} className="hover:bg-secondary">
                             <TableCell>
                               <Checkbox
                                 checked={m?.id ? selectedIdSet.has(m.id) : false}
@@ -604,7 +574,7 @@ export default function DeviceConfigPage(props) {
                                     size="sm"
                                     onClick={() => handleConnect(m.id)}
                                     disabled={saving}
-                                    className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
+                                    className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2"
                                   >
                                     <Plug className="w-4 h-4" />
                                     连接
@@ -664,7 +634,7 @@ export default function DeviceConfigPage(props) {
                 <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
                   取消
                 </Button>
-                <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={handleSave} disabled={saving} className="bg-primary text-primary-foreground hover:bg-primary/90">
                   {saving ? '保存中...' : '保存'}
                 </Button>
               </div>

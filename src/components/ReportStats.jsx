@@ -11,29 +11,31 @@ export function ReportStats({
   unqualifiedCount,
   todayReports
 }) {
-  return <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+  return (
+    <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">报告总数</p>
-              <p className="text-2xl font-bold text-blue-600">{totalReports}</p>
+              <p className="text-sm text-muted-foreground">报告总数</p>
+              <p className="text-2xl font-bold text-primary">{totalReports}</p>
             </div>
-            <FileText className="w-8 h-8 text-blue-400" />
+            <FileText className="h-8 w-8 text-primary/70" />
           </div>
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">今日新增</p>
-              <p className="text-2xl font-bold text-purple-600">{todayReports}</p>
+              <p className="text-sm text-muted-foreground">今日新增</p>
+              <p className="text-2xl font-bold text-primary">{todayReports}</p>
             </div>
-            <TrendingUp className="w-8 h-8 text-purple-400" />
+            <TrendingUp className="h-8 w-8 text-primary/70" />
           </div>
         </CardContent>
       </Card>
-    </div>;
+    </div>
+  );
 }

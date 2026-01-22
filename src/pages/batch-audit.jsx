@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle, useToast, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
-import { CheckCircle, ArrowLeft, PenTool, XCircle, Loader2, FileCheck, User, Thermometer, Gauge, Timer, Activity, Package } from 'lucide-react';
+import { CheckCircle, ArrowLeft, PenTool, XCircle, Loader2, FileCheck, Thermometer, Gauge, Timer, Activity, Package } from 'lucide-react';
 import { BatchAuditTable } from '@/components/BatchAuditTable';
 import { BatchAuditStats } from '@/components/BatchAuditStats';
 import { BatchSearchFilters } from '@/components/BatchSearchFilters';
 import { DetailModal } from '@/components/DetailModal';
-import { AntdTag, ConclusionTag } from '@/components/AntdTag.jsx';
+import { ConclusionTag } from '@/components/AntdTag.jsx';
 import { useSelection } from '@/hooks/useSelection';
 import { useExpand } from '@/hooks/useExpand';
 import { generatePageNumbers } from '@/utils/pagination';
-import { getUserTypeLabel } from '@/utils/format';
-import { USER_TYPES, TEST_TYPES, PAGINATION, CONCLUSION_STATUS } from '@/constants';
+import { TEST_TYPES, PAGINATION, CONCLUSION_STATUS } from '@/constants';
 import columnApi from '@/api/column';
 import reportApi from '@/api/report';
 import { showErrorToast } from '@/utils/toast';
@@ -59,15 +58,6 @@ export default function BatchAuditPage(props) {
 
   const selection = useSelection();
   const expand = useExpand();
-
-  // 当前用户信息
-  const currentUser = useMemo(
-    () => ({
-      name: '管理员',
-      type: USER_TYPES.ADMIN,
-    }),
-    []
-  );
 
   // 列表项转UI
   const mapColumnToUi = useCallback((c) => {
@@ -519,33 +509,15 @@ export default function BatchAuditPage(props) {
   }, [fetchPendingColumns]);
 
   return (
-    <div style={style} className="min-h-screen bg-gray-50">
-      {/* 顶部导航 */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBackToMain}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              返回主页
-            </Button>
-            <CheckCircle className="w-8 h-8 text-green-600" />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">批量审核签字</h1>
-              <p className="text-sm text-gray-500">批量审核待审核的层析柱</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <AntdTag label={getUserTypeLabel(currentUser.type)} color="sky" showDot={false} />
-          </div>
+    <div style={style} className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">批量审核签字</h1>
+          <div className="mt-1 text-sm text-slate-500">批量审核待审核的层析柱</div>
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="space-y-6">
         {/* 统计概览 */}
         <BatchAuditStats
           totalColumns={pendingColumns.length}
@@ -564,12 +536,12 @@ export default function BatchAuditPage(props) {
 
         {/* 批量操作 */}
         {selection.selectedItems.length > 0 && (
-          <Card className="mb-6 bg-green-50 border-green-200">
+          <Card className="mb-6 bg-secondary border-border">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <FileCheck className="w-5 h-5 text-green-600" />
-                  <span className="text-sm font-medium text-green-900">
+                  <FileCheck className="w-5 h-5 text-primary" />
+                  <span className="text-sm font-medium text-foreground">
                     已选择 {selection.selectedItems.length} 个层析柱
                   </span>
                 </div>
@@ -581,7 +553,7 @@ export default function BatchAuditPage(props) {
                     size="sm"
                     onClick={handleBatchApprove}
                     disabled={approving}
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
                   >
                     <PenTool className="w-4 h-4 mr-2" />
                     {approving ? '审核中...' : '批量审核通过'}
@@ -694,7 +666,7 @@ export default function BatchAuditPage(props) {
             <Button
               onClick={handleGenerateAndDownloadAfterApprove}
               disabled={generatingAfterApprove}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               生成并下载
             </Button>
