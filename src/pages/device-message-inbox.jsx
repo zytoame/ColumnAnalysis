@@ -286,11 +286,19 @@ export default function DeviceMessageInboxPage(props) {
   const [pageNum, setPageNum] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const [filters, setFilters] = useState({
+  const [draftFilters, setDraftFilters] = useState({
     status: 'UNDETERMINED',
     mode: 'all',
     columnSn: '',
   });
+
+  const [queryFilters, setQueryFilters] = useState({
+    status: 'UNDETERMINED',
+    mode: 'all',
+    columnSn: '',
+  });
+
+  const [hasQueried, setHasQueried] = useState(false);
 
   const [list, setList] = useState([]);
   const [total, setTotal] = useState(0);
@@ -303,15 +311,16 @@ export default function DeviceMessageInboxPage(props) {
   const [confirmDiff, setConfirmDiff] = useState([]);
 
   const fetchList = useCallback(
-    async (page = pageNum) => {
+    async (page = pageNum, overrideFilters) => {
+      const f = overrideFilters || queryFilters;
       setLoading(true);
       try {
         const resp = await deviceMessageInboxApi.search({
           pageNum: page,
           pageSize,
-          status: filters.status === 'all' ? undefined : filters.status || undefined,
-          mode: filters.mode === 'all' ? undefined : filters.mode || undefined,
-          columnSn: filters.columnSn || undefined,
+          status: f.status === 'all' ? undefined : f.status || undefined,
+          mode: f.mode === 'all' ? undefined : f.mode || undefined,
+          columnSn: f.columnSn || undefined,
         });
 
         const body = resp?.data;
@@ -324,21 +333,26 @@ export default function DeviceMessageInboxPage(props) {
         setTotal(totalCount);
         setPageNum(page);
 
-        if (!selected && records?.length) {
-          setSelected(records[0]);
-        }
+        setSelected((prev) => {
+          if (!records?.length) return null;
+          if (!prev) return records[0];
+          const stillExists = records.some((r) => r?.id === prev?.id);
+          return stillExists ? prev : records[0];
+        });
       } catch (e) {
         showErrorToast(toast, { title: '加载失败', description: '无法加载收件箱列表，请稍后重试' });
       } finally {
         setLoading(false);
       }
     },
-    [filters.columnSn, filters.mode, filters.status, pageNum, pageSize, selected, toast],
+    [pageNum, pageSize, queryFilters, toast],
   );
 
-  useEffect(() => {
-    fetchList(1);
-  }, [fetchList]);
+  const submitQuery = useCallback(() => {
+    setHasQueried(true);
+    setQueryFilters(draftFilters);
+    fetchList(1, draftFilters);
+  }, [draftFilters, fetchList]);
 
   const selectedRawObj = useMemo(() => {
     return selected ? safeJsonParse(selected.rawJson) : null;
@@ -701,7 +715,13 @@ export default function DeviceMessageInboxPage(props) {
           <div className="mt-1 text-sm text-slate-500">查看 raw 消息并进行补录/重算</div>
         </div>
         <div className="shrink-0">
-          <Button onClick={() => fetchList(pageNum)} disabled={loading}>
+          <Button
+            onClick={() => {
+              if (!hasQueried) return;
+              fetchList(pageNum);
+            }}
+            disabled={loading || !hasQueried}
+          >
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             刷新
           </Button>
@@ -721,8 +741,8 @@ export default function DeviceMessageInboxPage(props) {
             <div className="grid grid-cols-1 gap-3">
               <div className="grid grid-cols-2 gap-2">
                 <Select
-                  value={filters.status}
-                  onValueChange={(v) => setFilters((p) => ({ ...p, status: v }))}
+                  value={draftFilters.status}
+                  onValueChange={(v) => setDraftFilters((p) => ({ ...p, status: v }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="状态" />
@@ -737,8 +757,8 @@ export default function DeviceMessageInboxPage(props) {
                 </Select>
 
                 <Select
-                  value={filters.mode}
-                  onValueChange={(v) => setFilters((p) => ({ ...p, mode: v }))}
+                  value={draftFilters.mode}
+                  onValueChange={(v) => setDraftFilters((p) => ({ ...p, mode: v }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="模式" />
@@ -755,11 +775,11 @@ export default function DeviceMessageInboxPage(props) {
 
               <Input
                 placeholder="按层析柱序列号筛选"
-                value={filters.columnSn}
-                onChange={(e) => setFilters((p) => ({ ...p, columnSn: e.target.value }))}
+                value={draftFilters.columnSn}
+                onChange={(e) => setDraftFilters((p) => ({ ...p, columnSn: e.target.value }))}
               />
 
-              <Button onClick={() => fetchList(1)} disabled={loading}>
+              <Button onClick={submitQuery} disabled={loading}>
                 {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 查询
               </Button>

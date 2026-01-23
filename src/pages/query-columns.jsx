@@ -70,6 +70,10 @@ export default function QueryColumnsPage(props) {
     deviceSn: '',
     mode: TEST_TYPES.ALL,
     status: 'all',
+    expiryDateStart: '',
+    expiryDateEnd: '',
+    inspectionDateStart: '',
+    inspectionDateEnd: '',
   });
 
   const [appliedSearchParams, setAppliedSearchParams] = useState({
@@ -78,6 +82,10 @@ export default function QueryColumnsPage(props) {
     deviceSn: '',
     mode: TEST_TYPES.ALL,
     status: 'all',
+    expiryDateStart: '',
+    expiryDateEnd: '',
+    inspectionDateStart: '',
+    inspectionDateEnd: '',
   });
 
   const fields = useMemo(
@@ -124,6 +132,26 @@ export default function QueryColumnsPage(props) {
           { value: '已生成报告', label: '已生成报告' },
         ],
       },
+      {
+        type: 'date',
+        name: 'expiryDateStart',
+        label: '有效期开始',
+      },
+      {
+        type: 'date',
+        name: 'expiryDateEnd',
+        label: '有效期结束',
+      },
+      {
+        type: 'date',
+        name: 'inspectionDateStart',
+        label: '检测日期开始',
+      },
+      {
+        type: 'date',
+        name: 'inspectionDateEnd',
+        label: '检测日期结束',
+      },
     ],
     [],
   );
@@ -137,6 +165,11 @@ export default function QueryColumnsPage(props) {
           status: params.status === 'all' ? '' : params.status,
           mode: params.mode === TEST_TYPES.ALL ? '' : params.mode,
         };
+
+        if (!req.expiryDateStart) delete req.expiryDateStart;
+        if (!req.expiryDateEnd) delete req.expiryDateEnd;
+        if (!req.inspectionDateStart) delete req.inspectionDateStart;
+        if (!req.inspectionDateEnd) delete req.inspectionDateEnd;
 
         const response = await columnApi.advancedSearch(req, page, PAGINATION.DEFAULT_PAGE_SIZE);
 
@@ -322,6 +355,10 @@ export default function QueryColumnsPage(props) {
       deviceSn: '',
       mode: TEST_TYPES.ALL,
       status: 'all',
+      expiryDateStart: '',
+      expiryDateEnd: '',
+      inspectionDateStart: '',
+      inspectionDateEnd: '',
     };
     setDraftSearchParams(resetValues);
     setAppliedSearchParams(resetValues);

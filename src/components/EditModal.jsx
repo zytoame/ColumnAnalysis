@@ -537,19 +537,6 @@ export function EditModal({
                           </p>
                         </div>
                       </div>}
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">结论</label>
-                      <Select value={data.conclusion || ''} disabled>
-                        <SelectTrigger className="bg-gray-100 text-gray-500 cursor-not-allowed">
-                          <SelectValue placeholder="选择结论" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pass">合格</SelectItem>
-                          <SelectItem value="fail">不合格</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                     <div className="flex items-center gap-2">
                       {(() => {
                         const ui = getConclusionUI(data.conclusion);
@@ -562,9 +549,6 @@ export function EditModal({
                           />
                         );
                       })()}
-                      <span className="text-sm text-gray-500">
-                        标准: {data.standard} | 结果: {data.result}
-                      </span>
                     </div>
                   </CardContent>
                 </Card>)}

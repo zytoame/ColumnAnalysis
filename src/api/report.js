@@ -7,24 +7,21 @@ const reportApi = {
   generateReport: (columnSn, mode) => 
     axios.post(`${API_BASE_URL}/report/generate`, { columnSn, mode }, { responseType: 'blob' }),
 
-  // 检查报告是否存在（用于生成前提示）
-  checkReportExistence: (columnSn) =>
-    axios.get(`${API_BASE_URL}/report/existence`, { params: { columnSn } }).then((response) => response.data),
-
-  // 批量生成（仅生成不下载）
-  generateBatchReportsOnly: (columnSns) =>
-    axios.post(`${API_BASE_URL}/report/generate-batch-only`, columnSns).then((response) => response.data),
-
   // 异步任务：批量生成（仅生成不下载）
   submitGenerateOnlyTask: (columnSns, mode) => {
-    const body = mode ? { columnSns, mode } : columnSns;
+    const body = { columnSns, mode };
     return axios.post(`${API_BASE_URL}/report/tasks/generate`, body).then((response) => response.data);
   },
 
   // 异步任务：批量生成并打包ZIP
   submitGenerateZipTask: (columnSns, mode) => {
-    const body = mode ? { columnSns, mode } : columnSns;
+    const body = { columnSns, mode };
     return axios.post(`${API_BASE_URL}/report/tasks/generate-zip`, body).then((response) => response.data);
+  },
+
+  // 异步任务：仅打包已有报告ZIP（不触发生成）
+  submitZipExistingTask: (columnSns) => {
+    return axios.post(`${API_BASE_URL}/report/tasks/zip-existing`, columnSns).then((response) => response.data);
   },
 
   // 异步任务：查询任务状态
@@ -34,12 +31,6 @@ const reportApi = {
   // 异步任务：下载任务ZIP
   downloadTaskZip: (taskId) =>
     axios.get(`${API_BASE_URL}/report/tasks/${taskId}/download`, { responseType: 'blob' }),
-
-  // 查询报告
-  getReportsByColumn: (columnSn, pageNum = 1, pageSize = 10) =>
-    axios.get(`${API_BASE_URL}/report/by-column/${columnSn}`, {
-      params: { pageNum, pageSize }
-    }),
 
   // 搜索报告
   searchReports: (searchParams, pageNum = 1, pageSize = 10) => {
@@ -59,12 +50,6 @@ const reportApi = {
 
   // 删除报告
   deleteReport: (id) => axios.delete(`${API_BASE_URL}/report/${id}`),
-
-  // 批量下载报告
-  downloadBatchReports: (columnSns) =>
-    axios.post(`${API_BASE_URL}/report/download-batch`, columnSns, {
-      responseType: 'blob'
-    }),
 
   // 预览报告
   previewReport: (columnSn) =>

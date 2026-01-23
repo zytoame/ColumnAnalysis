@@ -14,10 +14,10 @@ export function UnqualifiedReportTable({
   onEdit,
 }) {
   return (
-    <Table>
+    <Table className="w-full table-fixed">
       <TableHeader>
         <TableRow>
-          <TableHead className="w-12">
+          <TableHead className="w-12 text-center">
             <input
               type="checkbox"
               checked={
@@ -28,21 +28,21 @@ export function UnqualifiedReportTable({
               className="rounded border-gray-300"
             />
           </TableHead>
-          <TableHead className="w-40 whitespace-nowrap">自编序列号</TableHead>
-          <TableHead>工单号</TableHead>
-          <TableHead>仪器序列号</TableHead>
-          <TableHead>检测模式</TableHead>
-          <TableHead className="w-24 whitespace-nowrap">预处理柱编号</TableHead>
-          <TableHead>检测日期</TableHead>
-          <TableHead className="w-[320px]">建议</TableHead>
-          <TableHead>操作</TableHead>
+          <TableHead className="w-40 text-center">自编序列号</TableHead>
+          <TableHead className="w-28 text-center">工单号</TableHead>
+          <TableHead className="w-32 text-center">仪器序列号</TableHead>
+          <TableHead className="w-20 text-center">检测模式</TableHead>
+          <TableHead className="w-20 text-center">预处理柱编号</TableHead>
+          <TableHead className="w-28 text-center">检测日期</TableHead>
+          <TableHead className="text-center">建议</TableHead>
+          <TableHead className="w-20 text-center">操作</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {reports.map((report) => (
           <React.Fragment key={report.columnSn}>
-            <TableRow className="hover:bg-gray-50">
-              <TableCell>
+            <TableRow className="hover:bg-secondary">
+              <TableCell className="py-3 text-center align-middle">
                 <input
                   type="checkbox"
                   checked={selectedReports.includes(report.columnSn)}
@@ -50,18 +50,28 @@ export function UnqualifiedReportTable({
                   className="rounded border-gray-300"
                 />
               </TableCell>
-              <TableCell className="font-medium">{report.columnSn}</TableCell>
-              <TableCell>{report.aufnr}</TableCell>
-              <TableCell>{report.deviceSn}</TableCell>
-              <TableCell>
-                <ModeTag mode={report.mode} />
+              <TableCell className="py-3 text-center align-middle font-medium truncate">{report.columnSn}</TableCell>
+              <TableCell className="py-3 text-center align-middle truncate">{report.aufnr}</TableCell>
+              <TableCell className="py-3 text-center align-middle truncate">{report.deviceSn}</TableCell>
+              <TableCell className="py-3 text-center align-middle">
+                <div className="flex items-center justify-center">
+                  <ModeTag mode={report.mode} />
+                </div>
               </TableCell>
-              <TableCell className="whitespace-nowrap truncate">{report.preprocessColumnSn || '-'}</TableCell>
-              <TableCell>{report.inspectionDate || '-'}</TableCell>
-              <TableCell className="max-w-[320px] truncate" title={report.suggestion || ''}>
+              <TableCell
+                className="py-3 text-center align-middle truncate"
+                title={report.preprocessColumnSn || ''}
+              >
+                {report.preprocessColumnSn || '-'}
+              </TableCell>
+              <TableCell className="py-3 text-center align-middle truncate">{report.inspectionDate || '-'}</TableCell>
+              <TableCell
+                className="py-3 text-center align-middle whitespace-normal break-words text-sm leading-5"
+                title={report.suggestion || ''}
+              >
                 {report.suggestion || '-'}
               </TableCell>
-              <TableCell>
+              <TableCell className="py-3 text-center align-middle">
                 <div className="flex space-x-1">
                   <Button
                     size="sm"

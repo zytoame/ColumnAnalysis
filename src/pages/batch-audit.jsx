@@ -303,7 +303,7 @@ export default function BatchAuditPage(props) {
       void (async () => {
         try {
           for (let i = 0; i < batches.length; i += 1) {
-            await reportApi.submitGenerateOnlyTask(batches[i]);
+            await reportApi.submitGenerateOnlyTask(batches[i], null);
           }
         } catch (e) {
           console.error(`【批量审核】提交批量生成任务失败, batchCount=${batches.length}`,
@@ -339,7 +339,7 @@ export default function BatchAuditPage(props) {
       // 获取已审核列表
       const productSns = [...approvedColumnSns];
       // 提交生成任务
-      const submitResult = await reportApi.submitGenerateZipTask(productSns);
+      const submitResult = await reportApi.submitGenerateZipTask(productSns, null);
       const taskId = submitResult?.taskId;
       if (!taskId) {
         throw new Error('未获取到任务ID');

@@ -73,6 +73,10 @@ export default function QueryReportsPage(props) {
     reportType: 'all', // 报告类型（CN/EN）
     mode: TEST_TYPES.ALL, // 检验类型
     status: 'all', // 报告状态：all(全部), GENERATED(已生成), DOWNLOADED(已下载)
+    expiryDateStart: '',
+    expiryDateEnd: '',
+    inspectionDateStart: '',
+    inspectionDateEnd: '',
   });
 
   // --- hooks ---
@@ -101,6 +105,11 @@ export default function QueryReportsPage(props) {
         status: params?.status === 'all' ? '' : params?.status,
         reportType: params?.reportType === 'all' ? '' : params?.reportType,
       };
+
+      if (!req.expiryDateStart) delete req.expiryDateStart;
+      if (!req.expiryDateEnd) delete req.expiryDateEnd;
+      if (!req.inspectionDateStart) delete req.inspectionDateStart;
+      if (!req.inspectionDateEnd) delete req.inspectionDateEnd;
 
       // 前端只暴露 productSn；后端搜索字段仍使用 columnSn（后端会同时匹配 Report.columnSn / Report.productSn）
       if (req.productSn) {
@@ -165,6 +174,10 @@ export default function QueryReportsPage(props) {
       reportType: 'all', // 报告类型（CN/EN）
       mode: TEST_TYPES.ALL,
       status: 'all', // 报告状态：all(全部), GENERATED(已生成), DOWNLOADED(已下载)
+      expiryDateStart: '',
+      expiryDateEnd: '',
+      inspectionDateStart: '',
+      inspectionDateEnd: '',
     };
     setSearchParams(resetValues);
     fetchReports(1, resetValues);
