@@ -64,6 +64,21 @@ export function BaseSearchFilters({
               );
             }
 
+            if (field.type === 'date') {
+              return (
+                <div key={field.name}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {field.label}
+                  </label>
+                  <Input
+                    type="date"
+                    value={searchParams[field.name] || ''}
+                    onChange={(e) => handleInputChange(field.name, e.target.value)}
+                  />
+                </div>
+              );
+            }
+
             if (field.type === 'select') {
               return (
                 <div key={field.name}>

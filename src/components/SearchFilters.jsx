@@ -70,6 +70,26 @@ export function SearchFilters({
         { value: '地贫', label: '地贫' },
       ],
     },
+    {
+      type: 'date',
+      name: 'expiryDateStart',
+      label: '有效期开始',
+    },
+    {
+      type: 'date',
+      name: 'expiryDateEnd',
+      label: '有效期结束',
+    },
+    {
+      type: 'date',
+      name: 'inspectionDateStart',
+      label: '检测日期开始',
+    },
+    {
+      type: 'date',
+      name: 'inspectionDateEnd',
+      label: '检测日期结束',
+    },
   ];
 
   return (
