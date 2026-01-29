@@ -1,21 +1,21 @@
-import axios from 'axios';
+import service from './request';
 
 const API_BASE_URL = '/api';
 
 const deviceConfigApi = {
-  listMachines: () => axios.get(`${API_BASE_URL}/device-config/machines`),
+  listMachines: () => service.get(`/device-config/machines`),
 
-  createMachine: (request) => axios.post(`${API_BASE_URL}/device-config/machines`, request),
+  createMachine: (request) => service.post(`/device-config/machines`, request),
 
-  updateMachine: (id, request) => axios.put(`${API_BASE_URL}/device-config/machines/${id}`, request),
+  updateMachine: (id, request) => service.put(`/device-config/machines/${id}`, request),
 
-  deleteMachine: (id) => axios.delete(`${API_BASE_URL}/device-config/machines/${id}`),
+  deleteMachine: (id) => service.delete(`/device-config/machines/${id}`),
 
-  connect: (id) => axios.post(`${API_BASE_URL}/device-config/machines/${id}/connect`),
+  connect: (id) => service.post(`/device-config/machines/${id}/connect`),
 
-  disconnect: (id) => axios.post(`${API_BASE_URL}/device-config/machines/${id}/disconnect`),
+  disconnect: (id) => service.post(`/device-config/machines/${id}/disconnect`),
 
-  status: () => axios.get(`${API_BASE_URL}/device-config/status`),
+  status: () => service.get(`/device-config/status`),
 };
 
 export default deviceConfigApi;

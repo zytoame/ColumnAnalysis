@@ -1,4 +1,4 @@
-import axios from 'axios';
+import service from './request';
 
 const API_BASE_URL = '/api';
 
@@ -21,8 +21,8 @@ const snMappingApi = {
     const form = new FormData();
     form.append('file', file);
 
-    return axios
-      .post(`${API_BASE_URL}/sn-mapping/import`, form, {
+    return service
+      .post(`/sn-mapping/import`, form, {
         headers: {
           'Content-Type': 'multipart/form-data',
           ...getAuthHeader(),

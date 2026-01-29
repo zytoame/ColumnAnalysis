@@ -1,4 +1,4 @@
-import axios from 'axios';
+import service from './request';
 
 const API_BASE_URL = '/api';
 
@@ -18,18 +18,18 @@ function getAuthHeader() {
 
 const deviceMessageInboxApi = {
   search: (params) =>
-    axios.get(`${API_BASE_URL}/system/device-message-inbox/search`, {
+    service.get(`/system/device-message-inbox/search`, {
       params,
       headers: getAuthHeader(),
     }),
 
   repair: (request) =>
-    axios.post(`${API_BASE_URL}/system/device-message-inbox/repair`, request, {
+    service.post(`/system/device-message-inbox/repair`, request, {
       headers: getAuthHeader(),
     }),
 
   save: (request) =>
-    axios.post(`${API_BASE_URL}/system/device-message-inbox/save`, request, {
+    service.post(`/system/device-message-inbox/save`, request, {
       headers: getAuthHeader(),
     }),
 };
