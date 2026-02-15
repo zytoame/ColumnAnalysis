@@ -14,7 +14,7 @@ export function UnqualifiedReportTable({
   onEdit,
 }) {
   return (
-    <Table className="w-full table-fixed">
+    <Table className="w-full table-fixed min-w-[1120px]">
       <TableHeader>
         <TableRow>
           <TableHead className="w-12 text-center">
@@ -28,14 +28,14 @@ export function UnqualifiedReportTable({
               className="rounded border-gray-300"
             />
           </TableHead>
-          <TableHead className="w-40 text-center">自编序列号</TableHead>
-          <TableHead className="w-28 text-center">工单号</TableHead>
-          <TableHead className="w-32 text-center">仪器序列号</TableHead>
-          <TableHead className="w-20 text-center">检测模式</TableHead>
-          <TableHead className="w-20 text-center">预处理柱编号</TableHead>
-          <TableHead className="w-28 text-center">检测日期</TableHead>
-          <TableHead className="text-center">建议</TableHead>
-          <TableHead className="w-20 text-center">操作</TableHead>
+          <TableHead className="w-40 text-center whitespace-nowrap">自编序列号</TableHead>
+          <TableHead className="w-40 text-center whitespace-nowrap">成品序列号</TableHead>
+          <TableHead className="w-28 text-center whitespace-nowrap">工单号</TableHead>
+          <TableHead className="w-32 text-center whitespace-nowrap">仪器序列号</TableHead>
+          <TableHead className="w-20 text-center whitespace-nowrap">检测模式</TableHead>
+          <TableHead className="w-28 text-center whitespace-nowrap">检测日期</TableHead>
+          <TableHead className="text-center min-w-[320px]">建议</TableHead>
+          <TableHead className="w-20 text-center whitespace-nowrap">操作</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -50,21 +50,29 @@ export function UnqualifiedReportTable({
                   className="rounded border-gray-300"
                 />
               </TableCell>
-              <TableCell className="py-3 text-center align-middle font-medium truncate">{report.columnSn}</TableCell>
-              <TableCell className="py-3 text-center align-middle truncate">{report.aufnr}</TableCell>
-              <TableCell className="py-3 text-center align-middle truncate">{report.deviceSn}</TableCell>
+              <TableCell className="py-3 text-center align-middle font-medium truncate whitespace-nowrap" title={report.columnSn || ''}>
+                {report.columnSn}
+              </TableCell>
+              <TableCell
+                className="py-3 text-center align-middle font-medium truncate whitespace-nowrap"
+                title={report.productSn || ''}
+              >
+                {report.productSn || '-'}
+              </TableCell>
+              <TableCell className="py-3 text-center align-middle truncate whitespace-nowrap" title={report.aufnr || ''}>
+                {report.aufnr}
+              </TableCell>
+              <TableCell className="py-3 text-center align-middle truncate whitespace-nowrap" title={report.deviceSn || ''}>
+                {report.deviceSn}
+              </TableCell>
               <TableCell className="py-3 text-center align-middle">
                 <div className="flex items-center justify-center">
                   <ModeTag mode={report.mode} />
                 </div>
               </TableCell>
-              <TableCell
-                className="py-3 text-center align-middle truncate"
-                title={report.preprocessColumnSn || ''}
-              >
-                {report.preprocessColumnSn || '-'}
+              <TableCell className="py-3 text-center align-middle truncate whitespace-nowrap" title={report.inspectionDate || ''}>
+                {report.inspectionDate || '-'}
               </TableCell>
-              <TableCell className="py-3 text-center align-middle truncate">{report.inspectionDate || '-'}</TableCell>
               <TableCell
                 className="py-3 text-center align-middle whitespace-normal break-words text-sm leading-5"
                 title={report.suggestion || ''}

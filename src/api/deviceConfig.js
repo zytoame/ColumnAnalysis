@@ -1,21 +1,19 @@
-import service from './request';
-
-const API_BASE_URL = '/api';
+import http from '../lib/http';
 
 const deviceConfigApi = {
-  listMachines: () => service.get(`/device-config/machines`),
+  listMachines: () => http.get(`/device-config/machines`),
+  listDepartments: () => http.get(`/device-config/departments`),
+  createMachine: (request) => http.post(`/device-config/machines`, request),
 
-  createMachine: (request) => service.post(`/device-config/machines`, request),
+  updateMachine: (id, request) => http.put(`/device-config/machines/${id}`, request),
 
-  updateMachine: (id, request) => service.put(`/device-config/machines/${id}`, request),
+  deleteMachine: (id) => http.delete(`/device-config/machines/${id}`),
 
-  deleteMachine: (id) => service.delete(`/device-config/machines/${id}`),
+  connect: (id) => http.post(`/device-config/machines/${id}/connect`),
 
-  connect: (id) => service.post(`/device-config/machines/${id}/connect`),
+  disconnect: (id) => http.post(`/device-config/machines/${id}/disconnect`),
 
-  disconnect: (id) => service.post(`/device-config/machines/${id}/disconnect`),
-
-  status: () => service.get(`/device-config/status`),
+  status: () => http.get(`/device-config/status`),
 };
 
 export default deviceConfigApi;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle, useToast, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui';
+import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, AlertTriangle, Clock, Loader2, FileCheck } from 'lucide-react';
 import { EditModal } from '@/components/EditModal';
 import { DetailModal } from '@/components/DetailModal';
@@ -409,14 +410,14 @@ export default function UnqualifiedReportsPage(props) {
         {selection.selectedItems.length > 0 && (
           <Card className="mb-6 bg-secondary border-border">
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
                   <FileCheck className="w-5 h-5 text-primary" />
                   <span className="text-sm font-medium text-slate-900">
                     已选择 {selection.selectedItems.length} 个层析柱
                   </span>
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button variant="outline" size="sm" onClick={selection.clearSelection}>
                     取消选择
                   </Button>
@@ -429,13 +430,15 @@ export default function UnqualifiedReportsPage(props) {
         {/* 层析柱列表 */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
+            <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5" />
                 不合格层析柱列表
               </span>
-              <div className="text-sm text-gray-500">
-                当前页显示 {currentColumns.length} 条，共 {filteredColumns.length} 个层析柱
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <div className="text-sm text-gray-500 whitespace-nowrap">
+                  当前页显示 {currentColumns.length} 条，共 {filteredColumns.length} 个层析柱
+                </div>
               </div>
             </CardTitle>
           </CardHeader>

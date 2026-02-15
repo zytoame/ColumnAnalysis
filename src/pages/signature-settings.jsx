@@ -11,8 +11,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  useToast,
 } from '@/components/ui';
+import { useToast } from '@/hooks/use-toast';
 import { Loader2, PenTool } from 'lucide-react';
 import signatureSettingsApi from '@/api/signatureSettings';
 import { SignaturePad } from '@/components/SignaturePad.jsx';
@@ -65,7 +65,7 @@ export default function SignatureSettingsPage(props) {
     if (file.type && file.type !== 'image/png') {
       toast({
         title: '文件格式不正确',
-        description: '请上传PNG格式签名图片',
+        description: '请上传白底或者透明底的PNG格式签名图片',
         variant: 'destructive',
       });
       return;
@@ -171,7 +171,7 @@ export default function SignatureSettingsPage(props) {
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">签名配置</h1>
-          <div className="mt-1 text-sm text-slate-500">设置检验员/审核员签名工号</div>
+          <div className="mt-1 text-sm text-slate-500">设置检验员/审核员签名</div>
         </div>
       </div>
 
@@ -244,7 +244,7 @@ export default function SignatureSettingsPage(props) {
                   onClick={() => inspectionEnFileRef.current?.click()}
                   disabled={uploadingEnRole === 'INSPECTION' || loading}
                 >
-                  {uploadingEnRole === 'INSPECTION' ? '上传中...' : '上传检验员英文签名'}
+                  {uploadingEnRole === 'INSPECTION' ? '上传中...' : '上传透明底或白底英文签名图片'}
                 </Button>
 
                 <Button
@@ -278,7 +278,7 @@ export default function SignatureSettingsPage(props) {
                   onClick={() => auditEnFileRef.current?.click()}
                   disabled={uploadingEnRole === 'AUDIT' || loading}
                 >
-                  {uploadingEnRole === 'AUDIT' ? '上传中...' : '上传审核员英文签名'}
+                  {uploadingEnRole === 'AUDIT' ? '上传中...' : '上传透明底或者白底英文签名图片'}
                 </Button>
 
                 <Button
@@ -291,7 +291,7 @@ export default function SignatureSettingsPage(props) {
             </div>
 
             <div className="mt-3 text-sm text-gray-500">
-              英文报告生成时会强制使用英文签名图片，未上传将直接报错。
+              <p>英文报告生成时会强制使用英文签名图片，未上传将直接报错。上传的图片需为白底或者透明底，否则会影响报告生成的最终效果。</p>
             </div>
           </CardContent>
         </Card>

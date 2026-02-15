@@ -74,7 +74,7 @@ export const USER_TYPES = {
 // 用户类型显示名称
 export const USER_TYPE_LABELS = {
   [USER_TYPES.ADMIN]: '管理员',
-  [USER_TYPES.CUSTOMER]: '客户',
+  [USER_TYPES.CUSTOMER]: '用户',
 } as const;
 
 // 报告类型显示名称

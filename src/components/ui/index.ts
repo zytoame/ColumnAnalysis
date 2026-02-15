@@ -47,7 +47,6 @@ export * from "./toast";
 export * from "./toggle-group";
 export * from "./toggle";
 export * from "./tooltip";
-export * from "../../hooks/use-toast";
 export * from "../../lib/utils";
 export * from "../../hooks/use-mobile";
 export { Toaster as LagencyToaster } from "./toaster";

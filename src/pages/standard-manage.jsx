@@ -29,8 +29,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  useToast,
 } from '@/components/ui';
+import { useToast } from '@/hooks/use-toast';
 import { Database, Loader2, Pencil, Plus, Search, Trash2, User } from 'lucide-react';
 import { BaseSearchFilters } from '@/components/BaseSearchFilters.jsx';
 import columnApi from '@/api/column';

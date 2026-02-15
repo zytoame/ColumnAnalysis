@@ -1,10 +1,13 @@
-import service from './request';
-
-const API_BASE_URL = '/api';
+import { get } from 'http';
+import http from '../lib/http';
 
 const deviceTrendApi = {
+  // 获取设备列表
+  getDeviceList: () =>
+    http.get('/api/column/devices'),
+  // 获取设备趋势数据
   getDeviceTrend: (deviceSn, limit) =>
-    service.get(`/column/device-trend`, {
+    http.get(`/api/column/device-trend`, {
       params: { deviceSn, limit },
     }),
 };

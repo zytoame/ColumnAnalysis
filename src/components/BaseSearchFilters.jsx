@@ -4,6 +4,16 @@ import React from 'react';
 import { Button, Input, Card, CardContent, CardHeader, CardTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
 // @ts-ignore
 import { Filter, Search, Loader2 } from 'lucide-react';
+// @ts-ignore
+import { Calendar as CalendarIcon } from 'lucide-react';
+// @ts-ignore
+import { format, parseISO, isValid } from 'date-fns';
+// @ts-ignore
+import { cn } from '@/lib/utils';
+// @ts-ignore
+import { Calendar } from '@/components/ui/calendar';
+// @ts-ignore
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 /**
  * 通用搜索条件组件
@@ -16,6 +26,8 @@ import { Filter, Search, Loader2 } from 'lucide-react';
  *   - label: label 文案
  *   - placeholder?: 占位文案
  *   - options?: { value: string; label: string }[]  // 仅 select 使用
+ *   - startName?: dateRange 类型的开始日期字段名
+ *   - endName?: dateRange 类型的结束日期字段名
  * - searchParams: 当前查询参数对象
  * - setSearchParams: (next) => void，用于更新查询参数
  * - onSearch: () => void
@@ -60,6 +72,65 @@ export function BaseSearchFilters({
                     value={searchParams[field.name] || ''}
                     onChange={(e) => handleInputChange(field.name, e.target.value)}
                   />
+                </div>
+              );
+            }
+
+            if (field.type === 'dateRange') {
+              const key = `${field.startName}-${field.endName}`;
+              const startDate = searchParams[field.startName]
+                ? parseISO(searchParams[field.startName])
+                : undefined;
+              const endDate = searchParams[field.endName]
+                ? parseISO(searchParams[field.endName])
+                : undefined;
+
+              const selectedRange = {
+                from: startDate && isValid(startDate) ? startDate : undefined,
+                to: endDate && isValid(endDate) ? endDate : undefined,
+              };
+
+              const displayText = selectedRange?.from
+                ? selectedRange?.to
+                  ? `${format(selectedRange.from, 'yyyy/MM/dd')} - ${format(selectedRange.to, 'yyyy/MM/dd')}`
+                  : format(selectedRange.from, 'yyyy/MM/dd')
+                : '';
+
+              return (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {field.label}
+                  </label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        data-empty={!displayText}
+                        className={cn(
+                          'data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal',
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {displayText ? <span>{displayText}</span> : <span>yyyy/MM/dd - yyyy/MM/dd</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="range"
+                        selected={selectedRange}
+                        onSelect={(range) => {
+                          const from = range?.from ? format(range.from, 'yyyy-MM-dd') : '';
+                          const to = range?.to ? format(range.to, 'yyyy-MM-dd') : '';
+                          setSearchParams({
+                            ...searchParams,
+                            [field.startName]: from,
+                            [field.endName]: to,
+                          });
+                        }}
+                        numberOfMonths={2}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               );
             }

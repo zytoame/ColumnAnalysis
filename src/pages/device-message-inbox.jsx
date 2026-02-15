@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -8,26 +8,27 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  Textarea,
-  useToast,
-} from '@/components/ui';
+} from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 import { Loader2, Wrench } from 'lucide-react';
 import deviceMessageInboxApi from '@/api/deviceMessageInbox';
 import { showErrorToast } from '@/utils/toast';
@@ -35,7 +36,7 @@ import { showErrorToast } from '@/utils/toast';
 const STATUS_OPTIONS = [
   { value: 'all', label: '全部' },
   { value: 'RECEIVED', label: '已接收' },
-  { value: 'UNDETERMINED', label: '未判定' },
+  { value: 'UNDETERMINED', label: '内容缺失' },
   { value: 'PROCESSED', label: '已处理' },
   { value: 'FAILED', label: '处理失败' },
 ];
@@ -49,7 +50,7 @@ const MODE_OPTIONS = [
 const GROUP_LABELS = {
   '设备信息': '设备信息',
   records: '检测记录',
-  EV_records: '有效期信息',
+  EV_records: '重复性测值',
   r_records: '试剂信息',
   c_records: '校准信息',
   qc_records: '质控信息',
@@ -202,7 +203,7 @@ function tryParseStructuredValue(val) {
 }
 
 function isReadOnlyEditKey(editKey) {
-  return editKey === 'records.column_sn';
+  return false;
 }
 
 function mapEditKeyToJsonPath(editKey) {
@@ -220,7 +221,7 @@ function mapEditKeyToJsonPath(editKey) {
 
   if (group === 'records') {
     if (!rest) return null;
-    if (rest === 'column_sn') return null;
+    if (rest === 'column_sn') return 'device_data.records.column_sn';
     if (rest.startsWith('peak_time.')) {
       const sub = rest.replace('peak_time.', '');
       if (['f_peak_time', 'a1c_peak_time', 'a2_peak_time'].includes(sub)) {
@@ -274,6 +275,16 @@ export default function DeviceMessageInboxPage(props) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const [saveErrorMsg, setSaveErrorMsg] = useState('');
+
+  // 未保存变更确认弹窗
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [pendingSelect, setPendingSelect] = useState(null);
+  const [pendingRoute, setPendingRoute] = useState(null);
+  const skipRouteBlockRef = useRef(false);
+  const unblockRef = useRef(null);
+  const unblockResolveRef = useRef(null); 
+
   const statusLabelMap = useMemo(() => {
     const map = {};
     for (const o of STATUS_OPTIONS) {
@@ -325,7 +336,6 @@ export default function DeviceMessageInboxPage(props) {
 
         const body = resp?.data;
 
-        // 后端是 MyBatis-Plus Page<...>，直接返回 Page 对象
         const records = body?.records ?? [];
         const totalCount = body?.total ?? 0;
 
@@ -336,8 +346,8 @@ export default function DeviceMessageInboxPage(props) {
         setSelected((prev) => {
           if (!records?.length) return null;
           if (!prev) return records[0];
-          const stillExists = records.some((r) => r?.id === prev?.id);
-          return stillExists ? prev : records[0];
+          const found = records.find((r) => r?.id === prev?.id);
+          return found || records[0];
         });
       } catch (e) {
         showErrorToast(toast, { title: '加载失败', description: '无法加载收件箱列表，请稍后重试' });
@@ -348,20 +358,24 @@ export default function DeviceMessageInboxPage(props) {
     [pageNum, pageSize, queryFilters, toast],
   );
 
+  // 查询按钮点击
   const submitQuery = useCallback(() => {
     setHasQueried(true);
     setQueryFilters(draftFilters);
     fetchList(1, draftFilters);
   }, [draftFilters, fetchList]);
 
+  // 选中项 rawJson 解析结果
   const selectedRawObj = useMemo(() => {
     return selected ? safeJsonParse(selected.rawJson) : null;
   }, [selected]);
 
+  // selectedRawObj 格式化后的字符串
   const selectedRawPretty = useMemo(() => {
     return selected ? formatJsonPretty(selected.rawJson) : '';
   }, [selected]);
 
+  // selectedRawObj 解析出的各字段详情分组
   const detailGroups = useMemo(() => {
     const obj = selectedRawObj;
     if (!obj) return [];
@@ -375,6 +389,7 @@ export default function DeviceMessageInboxPage(props) {
       mode: getValue(obj, 'device_data.mode') ?? '',
     };
 
+    // 基本参数
     const records = {
       column_sn: getValue(obj, 'device_data.records.column_sn') ?? '',
       pre_column_sn: getValue(obj, 'device_data.records.pre_column_sn') ?? '',
@@ -393,6 +408,7 @@ export default function DeviceMessageInboxPage(props) {
       env_temperature: getValue(obj, 'device_data.records.env_temperature') ?? '',
     };
 
+    // 重复性测值
     const ev =
       mode === 'thalassemia'
         ? {
@@ -404,6 +420,7 @@ export default function DeviceMessageInboxPage(props) {
             EV_records: getValue(obj, 'device_data.EV_records') ?? '',
           };
 
+    // 试剂信息
     const r = {
       r_a_lot: getValue(obj, 'device_data.r_records.r_a_lot') ?? '',
       r_b_lot: getValue(obj, 'device_data.r_records.r_b_lot') ?? '',
@@ -412,6 +429,7 @@ export default function DeviceMessageInboxPage(props) {
       r_l_lot: getValue(obj, 'device_data.r_records.r_l_lot') ?? '',
     };
 
+    // 校准信息
     const c =
       mode === 'thalassemia'
         ? {
@@ -439,6 +457,7 @@ export default function DeviceMessageInboxPage(props) {
             b: getValue(obj, 'device_data.c_records.b') ?? '',
           };
 
+    // 质控信息
     const qc =
       mode === 'thalassemia'
         ? {
@@ -490,6 +509,7 @@ export default function DeviceMessageInboxPage(props) {
     ];
   }, [selected, selectedRawObj]);
 
+  // 初始值扁平化映射
   const originalMap = useMemo(() => {
     const out = {};
     const buildFlatMap = (obj, prefix) => {
@@ -524,6 +544,76 @@ export default function DeviceMessageInboxPage(props) {
     return out;
   }, [detailGroups]);
 
+  // 是否存在“已改动但未保存”的字段
+  const dirtyFields = useMemo(() => {
+    const keys = new Set([
+      ...Object.keys(originalMap || {}),
+      ...Object.keys(editMap || {}),
+    ]);
+    const changed = new Set();
+    for (const k of keys) {
+      const oldVal = String((originalMap || {})[k] ?? '');
+      const newVal = String((editMap || {})[k] ?? '');
+      if (oldVal !== newVal) changed.add(k);
+    }
+    return changed;
+  }, [editMap, originalMap]);
+
+  const isDirty = useMemo(() => dirtyFields.size > 0, [dirtyFields]);
+
+  // 请求离开（切换选中项或路由跳转）
+  const requestLeave = useCallback(
+    ({ nextSelected, nextRoute }) => {
+      setPendingSelect(nextSelected || null);
+      setPendingRoute(nextRoute || null);
+      setSaveErrorMsg('');
+      setLeaveConfirmOpen(true);
+    },
+    [],
+  );
+
+  // 不保存离开
+  const doDiscardAndLeave = useCallback(() => {
+    console.log('执行 doDiscardAndLeave，准备离开');
+    
+    setLeaveConfirmOpen(false);
+    setSaveErrorMsg('');
+
+    // 重置 editMap
+    setEditMap((p) => {
+      const next = { ...(originalMap || {}) };
+      return next;
+    });
+
+    // 如果有 Promise 在等待，先 resolve 它
+    if (unblockResolveRef.current) {
+      console.log('resolve 路由阻塞 Promise');
+      unblockResolveRef.current();
+      unblockResolveRef.current = null;
+    }
+
+    // 然后执行实际的跳转或选择切换
+    if (pendingSelect) {
+      console.log('切换到新的选中项');
+      setSelected(pendingSelect);
+    }
+
+    if (pendingRoute) {
+      console.log('执行路由跳转到:', pendingRoute);
+      const history = window?._WEAPPS_HISTORY;
+      if (history) {
+        skipRouteBlockRef.current = true;
+        // 这里需要确保 pendingRoute 是正确的格式
+        history.push(pendingRoute);
+      }
+    }
+
+    setPendingSelect(null);
+    setPendingRoute(null);
+  }, [originalMap, pendingRoute, pendingSelect]);
+
+
+  // 构建变更对比列表
   const buildDiff = useCallback(() => {
     const rows = [];
     const keys = new Set([
@@ -549,6 +639,7 @@ export default function DeviceMessageInboxPage(props) {
     return rows;
   }, [editMap, originalMap]);
 
+  // 打开保存确认弹窗
   const openConfirm = useCallback(() => {
     const diff = buildDiff();
     if (!diff.length) {
@@ -562,15 +653,17 @@ export default function DeviceMessageInboxPage(props) {
     setConfirmOpen(true);
   }, [buildDiff, toast]);
 
+  // 提交保存
   const submitSave = useCallback(async () => {
-    if (!selected?.id) return;
+    if (!selected?.id) return false;
     if (!selectedRawObj) {
       toast({
         title: '保存失败',
         description: 'raw_json 不是合法 JSON，无法保存修改',
         variant: 'destructive',
       });
-      return;
+      setSaveErrorMsg('raw_json 不是合法 JSON，无法保存修改');
+      return false;
     }
 
     const rawJson = buildRawJsonFromEditMap(selectedRawObj, editMap);
@@ -585,22 +678,69 @@ export default function DeviceMessageInboxPage(props) {
       }
 
       const ok = body?.data;
-
       toast({
         title: '保存成功',
         description: ok ? '已保存并重新判定' : '已保存，已尝试重新判定（可能仍未判定/失败）',
       });
 
+      // 关键：保存成功后，立刻把 selected.rawJson 更新为最新值
+      // 否则 originalMap 仍基于旧 rawJson，dirtyFields 会一直存在，从而反复弹“未保存”
+      setSelected((prev) => {
+        if (!prev) return prev;
+        if (prev?.id !== selected?.id) return prev;
+        return { ...prev, rawJson };
+      });
+
       setConfirmOpen(false);
+      setSaveErrorMsg('');
+
       // 刷新列表并保持当前页
       await fetchList(pageNum);
+      return true;
     } catch (e) {
+      const msg = e?.message || '保存失败，请稍后重试';
       showErrorToast(toast, { title: '保存失败', description: '保存失败，请稍后重试' });
+      setSaveErrorMsg(msg);
+      return false;
     } finally {
       setSaving(false);
     }
   }, [editMap, fetchList, pageNum, selected, selectedRawObj, toast]);
 
+  // 保存并离开
+  const doSaveAndLeave = useCallback(async () => {
+    if (saving) return;
+    if (!selected?.id) return;
+
+    const ok = await submitSave();
+    if (!ok) {
+      return;
+    }
+
+    setLeaveConfirmOpen(false);
+    setSaveErrorMsg('');
+
+    // 同样需要 resolve Promise
+    if (unblockResolveRef.current) {
+      unblockResolveRef.current();
+      unblockResolveRef.current = null;
+    }
+
+    if (pendingRoute) {
+      const history = window?._WEAPPS_HISTORY;
+      if (history) {
+        skipRouteBlockRef.current = true;
+        history.push(pendingRoute);
+      }
+    } else if (pendingSelect) {
+      setSelected(pendingSelect);
+    }
+
+    setPendingSelect(null);
+    setPendingRoute(null);
+  }, [pendingRoute, pendingSelect, saving, selected?.id, submitSave]);
+
+  // 选中项摘要
   const selectedSummary = useMemo(() => {
     if (!selected) return null;
     const missing = formatMissingFields(selected.missingFields);
@@ -647,6 +787,7 @@ export default function DeviceMessageInboxPage(props) {
     setEditMap(next);
   }, [detailGroups, selectedRawObj, selected?.id]);
 
+  // 递归渲染字段编辑项
   const renderGroupFields = useCallback(
     (data, prefix) => {
       if (data == null) return null;
@@ -654,15 +795,33 @@ export default function DeviceMessageInboxPage(props) {
       if (typeof data !== 'object' || Array.isArray(data)) {
         const key = String(prefix || '');
         const value = String(editMap[key] ?? '');
+        const changed = dirtyFields.has(key);
+        const isColumnSn = key === 'records.column_sn';
+        const disabled = isColumnSn ? false : isReadOnlyEditKey(key);
+
         return (
-          <Input
-            value={value}
-            disabled={isReadOnlyEditKey(key)}
-            onChange={(e) => {
-              if (isReadOnlyEditKey(key)) return;
-              setEditMap((p) => ({ ...p, [key]: e.target.value }));
-            }}
-          />
+          <div className="space-y-1">
+            <Input
+              value={value}
+              className={
+                isColumnSn
+                  ? 'ring-1 ring-rose-200 bg-rose-50 focus-visible:ring-rose-300'
+                  : changed
+                    ? 'ring-1 ring-amber-400 bg-amber-50 focus-visible:ring-amber-400'
+                    : undefined
+              }
+              disabled={disabled}
+              onChange={(e) => {
+                if (disabled) return;
+                setEditMap((p) => ({ ...p, [key]: e.target.value }));
+              }}
+            />
+            {isColumnSn ? (
+              <div className="text-xs text-slate-500">
+                重要字段：提交前会提示“将更新已有/将新增层析柱信息”。建议仔细核对后再保存。
+              </div>
+            ) : null}
+          </div>
         );
       }
 
@@ -684,6 +843,7 @@ export default function DeviceMessageInboxPage(props) {
 
             const label = FIELD_LABELS[k] || k;
             const value = String(editMap[nextPrefix] ?? '');
+            const changed = dirtyFields.has(nextPrefix);
 
             return (
               <div key={nextPrefix} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
@@ -691,12 +851,36 @@ export default function DeviceMessageInboxPage(props) {
                 <div className="md:col-span-2">
                   <Input
                     value={value}
-                    disabled={isReadOnlyEditKey(nextPrefix)}
+                    className={(() => {
+                      const isColumnSn = nextPrefix === 'records.column_sn';
+                      if (isColumnSn) {
+                        return 'ring-1 ring-rose-200 bg-rose-50 focus-visible:ring-rose-300';
+                      }
+                      return changed
+                        ? 'ring-1 ring-amber-400 bg-amber-50 focus-visible:ring-amber-400'
+                        : undefined;
+                    })()}
+                    disabled={(() => {
+                      const isColumnSn = nextPrefix === 'records.column_sn';
+                      if (isColumnSn) {
+                        return false;
+                      }
+                      return isReadOnlyEditKey(nextPrefix);
+                    })()}
                     onChange={(e) => {
-                      if (isReadOnlyEditKey(nextPrefix)) return;
+                      const isColumnSn = nextPrefix === 'records.column_sn';
+                      const disabled = isColumnSn
+                        ? false
+                        : isReadOnlyEditKey(nextPrefix);
+                      if (disabled) return;
                       setEditMap((p) => ({ ...p, [nextPrefix]: e.target.value }));
                     }}
                   />
+                  {nextPrefix === 'records.column_sn' ? (
+                    <div className="text-xs text-slate-500">
+                      重要字段：提交前会提示“将更新已有/将新增层析柱信息”。建议仔细核对后再保存。
+                    </div>
+                  ) : null}
                 </div>
               </div>
             );
@@ -704,15 +888,79 @@ export default function DeviceMessageInboxPage(props) {
         </div>
       );
     },
-    [editMap],
+    [dirtyFields, editMap],
   );
+
+  // 调试路由守卫状态
+  useEffect(() => {
+    console.log('路由守卫状态:', {
+    isDirty,
+    pendingRoute,
+    pendingSelect,
+    leaveConfirmOpen,
+    hasHistory: !!window?._WEAPPS_HISTORY
+  });
+  }, [isDirty, pendingRoute, pendingSelect, leaveConfirmOpen]);
+
+
+  // 2) 路由切换时提醒（HistoryRouter / history.block）
+  useEffect(() => {
+    const history = window?._WEAPPS_HISTORY;
+    if (!history) return;
+
+    if (unblockRef.current) {
+      unblockRef.current();
+      unblockRef.current = null;
+    }
+
+    // 只在有未保存修改时才设置路由守卫
+    if (isDirty) {
+      console.log('设置路由守卫，isDirty = true');
+      
+      unblockRef.current = history.block((tx) => {
+        console.log('路由拦截触发:', {
+          pathname: tx.location?.pathname,
+          skipRouteBlock: skipRouteBlockRef.current,
+          isDirty
+        });
+
+        if (skipRouteBlockRef.current) {
+          console.log('跳过拦截（skipRouteBlock为true）');
+          skipRouteBlockRef.current = false;
+          return;
+        }
+
+        // 保存跳转信息，打开确认弹窗
+        console.log('打开确认弹窗，目标路由:', tx.location);
+        setPendingRoute(tx.location);
+        setLeaveConfirmOpen(true);
+        
+        // 返回一个 Promise 来延迟路由跳转
+        return new Promise((resolve) => {
+          // 保存 resolve 函数供后续使用
+          unblockResolveRef.current = resolve;
+          console.log('路由阻塞，等待用户确认');
+        });
+      });
+    } else {
+      console.log('未设置路由守卫，isDirty = false');
+    }
+
+    return () => {
+      if (unblockRef.current) {
+        console.log('清理路由守卫');
+        unblockRef.current();
+        unblockRef.current = null;
+      }
+    };
+  }, [isDirty]); // 依赖 isDirty，当 isDirty 变化时会重新设置
 
   return (
     <div style={style} className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">设备消息收件箱</h1>
-          <div className="mt-1 text-sm text-slate-500">查看 raw 消息并进行补录/重算</div>
+          <div className="mt-1 text-sm text-slate-500">查看 JSON 消息并进行补录/重算</div>
         </div>
         <div className="shrink-0">
           <Button
@@ -796,27 +1044,61 @@ export default function DeviceMessageInboxPage(props) {
                     <TableHead>状态</TableHead>
                     <TableHead>模式</TableHead>
                     <TableHead>层析柱SN</TableHead>
+                    <TableHead>接收日期</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {list.map((row) => {
                     const isActive = selected?.id === row.id;
                     const statusLabel = statusLabelMap[row.status] || row.status;
+                    const isActiveDirty = isActive && isDirty;
+
+                    // 格式化接收日期函数
+                    const formatReceivedDate = (dateStr) => {
+                      if (!dateStr) return '-';
+                      try {
+                        const date = new Date(dateStr);
+                        // 显示格式：(月-日 时:分)
+                        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                        const day = date.getDate().toString().padStart(2, '0');
+                        const hours = date.getHours().toString().padStart(2, '0');
+                        const minutes = date.getMinutes().toString().padStart(2, '0');
+                        return `${month}-${day} ${hours}:${minutes}`;
+                      } catch (e) {
+                        // 如果解析失败，显示原始值的一部分
+                        return dateStr.length >= 10 ? dateStr.substring(5, 16) : dateStr;
+                      }
+                    };
+                    
                     return (
                       <TableRow
                         key={row.id}
-                        className={isActive ? 'bg-secondary cursor-pointer' : 'cursor-pointer'}
-                        onClick={() => setSelected(row)}
+                        className={
+                          isActiveDirty
+                            ? 'bg-secondary cursor-pointer ring-1 ring-amber-400'
+                            : isActive
+                              ? 'bg-secondary cursor-pointer'
+                              : 'cursor-pointer'
+                        }
+                        onClick={() => {
+                          if (row?.id === selected?.id) return;
+                          if (isDirty) {
+                            requestLeave({ nextSelected: row });
+                            return;
+                          }
+                          setSelected(row);
+                        }}
                       >
                         <TableCell className="text-xs">{statusLabel}</TableCell>
                         <TableCell className="text-xs">{row.mode}</TableCell>
                         <TableCell className="text-xs">{row.columnSn}</TableCell>
+                        <TableCell className="text-xs">{formatReceivedDate(row.receivedAt)}</TableCell>
                       </TableRow>
                     );
                   })}
                   {!list.length ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center text-gray-500">
+                      <TableCell colSpan={4} className="text-center text-gray-500">
                         暂无数据
                       </TableCell>
                     </TableRow>
@@ -897,6 +1179,46 @@ export default function DeviceMessageInboxPage(props) {
             <AlertDialogAction onClick={submitSave} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               确认提交
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={leaveConfirmOpen} onOpenChange={setLeaveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>你有未保存的修改</AlertDialogTitle>
+            <AlertDialogDescription>
+              当前消息的修改还没有保存。你想保存后再离开吗？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="text-sm text-muted-foreground">
+            未保存字段数：
+            <span className="font-medium text-foreground">{dirtyFields.size}</span>
+          </div>
+
+          {saveErrorMsg ? (
+            <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
+              保存失败：{saveErrorMsg}
+              <div className="mt-1 text-amber-700/80">
+                你可以选择“不保存”继续离开，或点击“取消”留在当前页稍后重试。
+              </div>
+            </div>
+          ) : null}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={saving}
+              onClick={doDiscardAndLeave}
+              className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            >
+              不保存
+            </AlertDialogAction>
+            <AlertDialogAction disabled={saving} onClick={doSaveAndLeave}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              保存
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

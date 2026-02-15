@@ -1,17 +1,15 @@
-import axios from 'axios';
-
-const API_BASE_URL = '/api';
+import http from '../lib/http';
 
 const signatureSettingsApi = {
-  getSettings: () => axios.get(`/signature-settings`),
-
-  updateSettings: (request) => axios.post(`/signature-settings`, request),
+  getSettings: () => http.get(`/signature-settings`),
+  saveSettings: (data) => http.post(`/signature-settings`, data),
+  updateSettings: (data) => http.post(`/signature-settings`, data),
 
   uploadEnglishSignature: (role, file) => {
     const formData = new FormData();
     formData.append('role', role);
     formData.append('file', file);
-    return axios.post(`/signature-settings/signature-en`, formData, {
+    return http.post(`/signature-settings/signature-en`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },

@@ -28,6 +28,7 @@ import {
   AlertTriangle,
   Upload,
 } from "lucide-react";
+import { useAuth } from "@/auth/AuthProvider";
 
 type NavItem = {
   id: string;
@@ -48,7 +49,7 @@ const navItems: NavItem[] = [
     id: "batch-audit",
     label: "批量审核",
     icon: ShieldCheck,
-    keywords: ["piliangshenhe", "plsh"],
+    keywords: ["piliangshenhe", "plsh","审核","shenhe"],
   },
   {
     id: "unqualified-reports",
@@ -77,7 +78,7 @@ const navItems: NavItem[] = [
   },
   {
     id: "device-message-inbox",
-    label: "仪器消息补充",
+    label: "仪器消息修正",
     icon: Wrench,
     keywords: ["yiqixiaoxibuchong", "yqxxbc","接收"],
   },
@@ -92,6 +93,12 @@ const navItems: NavItem[] = [
     label: "序列号映射",
     icon: Upload,
     keywords: ["xuliehaoyingshe", "xlhys", "sn","成品序列号"],
+  },
+  {
+    id: "unmatched-manage",
+    label: "未匹配列表",
+    icon: AlertTriangle,
+    keywords: ["weipipeiliebiao", "wpp", "未匹配", "匹配"],
   },
   {
     id: "signature-settings",
@@ -109,10 +116,41 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [activeIndex, setActiveIndex] = React.useState(0);
 
+  const auth = useAuth();
+  const role = auth.role;
+
+  // 根据角色过滤导航项
+  const allowedNavItems = React.useMemo(() => {
+    // 普通用户只能访问报告查询
+    if (role === "CUSTOMER") {
+      return navItems.filter((item) => item.id === "query-reports");
+    }
+    return navItems;
+  }, [role]);
+
+  React.useEffect(() => {
+    const path = location.pathname || "/";
+    if (path === "/wecom-login" || path === "/callback") {
+      return;
+    }
+
+    if (role !== "CUSTOMER") {
+      return;
+    }
+
+    if (path === "/query-reports") {
+      return;
+    }
+
+    navigate("/query-reports", { replace: true });
+  }, [location.pathname, navigate, role]);
+
+  // 规范查询文本内容
   const normalizeSearchText = React.useCallback((value: string) => {
     return value.trim().replace(/^\//, "").toLowerCase();
   }, []);
 
+  // 获取token
   const getItemTokens = React.useCallback((item: NavItem) => {
     const tokens = [item.id, item.label, ...(item.aliases || []), ...(item.keywords || [])]
       .map((v) => v.trim())
@@ -126,12 +164,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     if (!keyword) {
       return [] as NavItem[];
     }
-    const matched = navItems
+    const matched = allowedNavItems
       .map((item) => ({ item, tokens: getItemTokens(item) }))
       .filter(({ tokens }) => tokens.some((t) => t.includes(keyword)))
       .map(({ item }) => item);
     return matched.slice(0, 8);
-  }, [getItemTokens, normalizeSearchText, searchText]);
+  }, [allowedNavItems, getItemTokens, normalizeSearchText, searchText]);
 
   const handleSelectItem = React.useCallback(
     (item: NavItem) => {
@@ -149,7 +187,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const matchedById = navItems.filter((item) => item.id.toLowerCase() === keyword);
+    const matchedById = allowedNavItems.filter((item) => item.id.toLowerCase() === keyword);
     if (matchedById.length === 1) {
       navigate(`/${matchedById[0].id}`);
       setSearchText("");
@@ -158,13 +196,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const matchedByLabel = navItems.filter((item) => {
+    const matchedByLabel = allowedNavItems.filter((item) => {
       const label = item.label.trim().toLowerCase();
       return label.includes(keyword);
     });
 
     if (matchedByLabel.length === 0) {
-      const matchedByAliasOrKeyword = navItems.filter((item) => {
+      const matchedByAliasOrKeyword = allowedNavItems.filter((item) => {
         const tokens = getItemTokens(item);
         return tokens.some((t) => t.includes(keyword));
       });
@@ -209,7 +247,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       description: "请尝试输入菜单名称（如：报告查询）或路由id（如：query-reports）",
       variant: "destructive",
     });
-  }, [getItemTokens, navigate, normalizeSearchText, searchText, toast]);
+  }, [allowedNavItems, getItemTokens, navigate, normalizeSearchText, searchText, toast]);
 
   return (
     <SidebarProvider defaultOpen>
@@ -232,7 +270,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
         <SidebarContent className="px-2">
           <SidebarMenu>
-            {navItems.map((item) => {
+            {allowedNavItems.map((item) => {
               const active = location.pathname === `/${item.id}`;
               const Icon = item.icon;
               return (
@@ -353,7 +391,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <div className="mx-auto w-full max-w-7xl p-6">{children}</div>
+        <div className="mx-auto w-full min-w-0 max-w-7xl overflow-x-hidden p-4 sm:p-6">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

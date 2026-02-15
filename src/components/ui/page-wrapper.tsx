@@ -1,9 +1,7 @@
 import * as React from "react";
 
 import { $w as base$W, createPageApi } from "@/lib/weda-client";
-import { _WEDA_CLOUD_SDK as WEDA_CLOUD_SDK } from "@cloudbase/weda-client";
 import querystring from "query-string";
-const { createDataset, EXTRA_API } = WEDA_CLOUD_SDK;
 
 export function PageWrapper({
   id,
@@ -15,7 +13,6 @@ export function PageWrapper({
 }) {
   const $page = React.useMemo(() => {
     const $page = createPageApi();
-    const dataset = createDataset(id, undefined, { appId: "weda" });
     Object.assign($page, {
       __internal__: {
         ...$page.__internal__,
@@ -35,7 +32,6 @@ export function PageWrapper({
       },
       id,
       uuid: id,
-      dataset,
     });
 
     return $page;
@@ -48,7 +44,6 @@ export function PageWrapper({
     const query =
       querystring.parse((location.search || "").split("?")[1] || "") || {};
 
-    EXTRA_API.setParams(id, query || {}, { force: true });
     base$W.app.__internal__.activePage = pageCodeContextRef.current;
     return () => {
       if (pageCodeContextRef.current.__internal__) {

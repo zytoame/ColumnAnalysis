@@ -3,7 +3,7 @@ import React from 'react';
 // @ts-ignore;
 import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui';
 // @ts-ignore;
-import { Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 // @ts-ignore;
 import { DetectionDataCard } from '@/components/DetectionDataCard.jsx';
 import { ModeTag } from '@/components/AntdTag.jsx';
@@ -15,7 +15,6 @@ export function BatchAuditTable({
   onSelectColumn,
   onSelectAll,
   onToggleExpand,
-  onPreview,
 }) {
   return (
     <Table>
@@ -75,15 +74,6 @@ export function BatchAuditTable({
                     ) : (
                       <ChevronDown className="w-4 h-4" />
                     )}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onPreview(column.columnSn)}
-                    className="h-8 w-8 p-0"
-                    title="预览详情"
-                  >
-                    <Eye className="w-4 h-4" />
                   </Button>
                 </div>
               </TableCell>

@@ -1,21 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import envConfig from "../configs/env";
-import {
-  createWebApp,
-  _ACTIONS_KEY as ACTIONS_KEY,
-  _ROUTER_KEY as ROUTER_KEY,
-  actionSdk as sdk,
-  _WEDA_CLOUD_SDK,
-} from "@cloudbase/weda-client";
+const ACTIONS_KEY: Record<string, true> = {};
+const ROUTER_KEY: Record<string, true> = {};
 
-const { initTcb, setConfig } = _WEDA_CLOUD_SDK;
+const sdk: Record<string, any> = {};
+
+function createWebApp(): any {
+  return {
+    __internal__: {},
+    utils: {},
+  };
+}
+
+const _WEDA_CLOUD_SDK = {
+  createDataset: () => ({}),
+  EXTRA_API: {
+    setParams: () => undefined,
+  },
+};
 
 declare global {
   interface Window {
-    app?: object;
-    $app?: object;
-    $page?: object;
-    $w?: object;
+    app?: any;
+    $app?: any;
+    $page?: any;
+    $w?: any;
   }
 }
 
@@ -122,37 +130,3 @@ export function createPageApi(): any {
   );
   return $page;
 }
-
-setConfig({
-  isProd: true,
-  /** 低码应用ID */
-  appID: "weda",
-  /** 云开发环境ID */
-  envID: envConfig.env,
-  /** 应用端ID */
-  tcbClientId: envConfig.env,
-  /** 数据源描述对象数组 */
-  dataSourceProfiles: [],
-  /**
-   * 新的dataset变量配置对象
-   * key 为页面ID(全局为$global), val 为变量配置数组
-   */
-  datasetProfiles: {
-    $global: {
-      state: {},
-      params: {},
-    },
-    home: {
-      state: {},
-    },
-  },
-  tcbApiOrigin: "",
-  gatewayOrigin: "",
-  isPrivate: false,
-  beforeDSRequest: (cfg) => {
-    if (!cfg.options || !cfg.options.showLoading) return;
-    app.showLoading({});
-  },
-});
-
-initTcb();

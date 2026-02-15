@@ -1,5 +1,6 @@
 // @ts-ignore;
 import React from 'react';
+import { useAuth } from '@/auth/AuthProvider';
 // @ts-ignore;
 import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Checkbox } from '@/components/ui';
 // @ts-ignore;
@@ -18,6 +19,10 @@ export const ReportTable = ({
   onDownload,
   onDelete,
 }) => {
+  const auth = useAuth();
+  // 普通用户只允许预览/下载，不允许生成/删除
+  const isCustomer = auth?.role === 'CUSTOMER';
+
   // 判断当前页是否全选
   const isAllSelected = reports.length > 0 &&
     reports.every((report) => selectedReports.includes(report.columnSn));
@@ -57,76 +62,46 @@ export const ReportTable = ({
                   onCheckedChange={() => onSelectReport(report.columnSn)}
                 />
               </TableCell>
-              <TableCell className="font-medium">{report.productSn || '-'}</TableCell>
-              <TableCell>{report.aufnr}</TableCell>
-              <TableCell>{report.reportType}</TableCell>
+              <TableCell className="font-medium" title={report.productSn || ''}>
+                {report.productSn || '-'}
+              </TableCell>
+              <TableCell title={report.aufnr || ''}>{report.aufnr}</TableCell>
+              <TableCell title={report.reportType || ''}>{report.reportType}</TableCell>
               <TableCell>
                 <ModeTag mode={report.mode} />
               </TableCell>
-              <TableCell>{report.inspectionDate}</TableCell>
+              <TableCell title={report.inspectionDate || ''}>{report.inspectionDate}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
-                  {/* 必须传入 report 对象 */}
-                  {/* 展开/收起按钮 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onToggleExpand(report.columnSn)}
-                    title={expandedRows.includes(report.columnSn) ? "收起详情" : "展开详情"}
-                  >
-                    {expandedRows.includes(report.columnSn) ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </Button>*/}
                   <Button variant="ghost" size="sm" onClick={() => onPreview(report)}>
                     <Eye className="h-4 w-4 mr-1" /> 预览
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onGenerate?.(report)}
-                    disabled={!onGenerate}
-                  >
-                    <FileText className="h-4 w-4 mr-1" /> 生成
-                  </Button>
-                  {/* <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onGenerate?.(report)}
-                    disabled={!onGenerate}
-                  >
-                    <FileText className="h-4 w-4 mr-1" /> 生成
-                  </Button> */}
+                  {!isCustomer && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onGenerate?.(report)}
+                      disabled={!onGenerate}
+                    >
+                      <FileText className="h-4 w-4 mr-1" /> 生成
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => onDownload(report)}>
                     <Download className="h-4 w-4 mr-1" /> 下载
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onDelete?.(report)}
-                    disabled={!onDelete}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" /> 删除
-                  </Button>
+                  {!isCustomer && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onDelete?.(report)}
+                      disabled={!onDelete}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" /> 删除
+                    </Button>
+                  )}
                 </div>
               </TableCell>
             </TableRow>
-
-            {/* 展开的检测数据行 
-            {expandedRows.includes(report.columnSn) && (
-              <TableRow>
-                <TableCell colSpan={8} className="bg-gray-50 p-4">
-                  <DetectionDataCard
-                    detectionData={report.detectionData || {}}
-                    finalConclusion={report.finalConclusion}
-                    defaultExpanded={true}
-                    showHeader={false}
-                  />
-                </TableCell>
-              </TableRow>
-            )}*/}
           </React.Fragment>
         )))}
       </TableBody>

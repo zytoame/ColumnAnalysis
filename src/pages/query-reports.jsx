@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle, useToast,
+import { Button, Card, CardContent, CardHeader, CardTitle,
   Pagination, PaginationContent, PaginationEllipsis, PaginationItem,
   PaginationLink, PaginationNext, PaginationPrevious,
   Dialog, DialogContent, DialogHeader, DialogTitle,
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui';
+import { useToast } from '@/hooks/use-toast';
 import { FileText, ArrowLeft, Plus, Search, Download, Loader2 } from 'lucide-react';
 import { ReportTable } from '@/components/ReportTable';
 import { ReportStats } from '@/components/ReportStats';
@@ -22,6 +23,7 @@ export default function QueryReportsPage(props) {
   const { $w, style } = props;
   const { toast } = useToast();
 
+  // 任务轮询定时器引用
   const taskPollTimersRef = useRef({});
 
   // 状态管理
@@ -36,12 +38,13 @@ export default function QueryReportsPage(props) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
 
-  // 二次确认（替换 window.confirm）
+  // 二次确认
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
   const [previewColumnSn, setPreviewColumnSn] = useState('');
 
+  // 生成报告相关状态
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [generateTarget, setGenerateTarget] = useState(null);
   const [existenceInfo, setExistenceInfo] = useState(null);
@@ -73,10 +76,12 @@ export default function QueryReportsPage(props) {
     reportType: 'all', // 报告类型（CN/EN）
     mode: TEST_TYPES.ALL, // 检验类型
     status: 'all', // 报告状态：all(全部), GENERATED(已生成), DOWNLOADED(已下载)
-    expiryDateStart: '',
-    expiryDateEnd: '',
-    inspectionDateStart: '',
-    inspectionDateEnd: '',
+    expiryDateStart: '', // 有效期开始
+    expiryDateEnd: '', // 有效期结束
+    inspectionDateStart: '', // 检验日期开始
+    inspectionDateEnd: '', // 检验日期结束
+    productionDateStart: '', // 生产日期开始
+    productionDateEnd: '', // 生产日期结束
   });
 
   // --- hooks ---
@@ -87,40 +92,55 @@ export default function QueryReportsPage(props) {
   const [pageNum, setPageNum] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
-
   
   // 后端已经做了分页，reports 就是当前页的数据
   const currentReports = useMemo(() => {
     return reports;
   }, [reports]);
 
+  const buildSearchReq = useCallback((params) => {
+    const req = {
+      ...(params || {}),
+      mode: params?.mode === TEST_TYPES.ALL ? '' : params?.mode,
+      status: params?.status === 'all' ? '' : params?.status,
+      reportType: params?.reportType === 'all' ? '' : params?.reportType,
+    };
+
+    if (!req.expiryDateStart) delete req.expiryDateStart;
+    if (!req.expiryDateEnd) delete req.expiryDateEnd;
+    if (!req.inspectionDateStart) delete req.inspectionDateStart;
+    if (!req.inspectionDateEnd) delete req.inspectionDateEnd;
+    if (!req.productionDateStart) delete req.productionDateStart;
+    if (!req.productionDateEnd) delete req.productionDateEnd;
+
+    // 前端只暴露 productSn；后端搜索字段仍使用 columnSn（后端会同时匹配 Report.columnSn / Report.productSn）
+    if (req.productSn) {
+      req.columnSn = req.productSn;
+      delete req.productSn;
+    }
+    return req;
+  }, []);
+
   // 获取报告列表
   const fetchReports = useCallback(async (page = 1, currentParams) => {
     setLoading(true);
     try {
-      const params = currentParams || {};
-      const req = {
-        ...params,
-        mode: params?.mode === TEST_TYPES.ALL ? '' : params?.mode,
-        status: params?.status === 'all' ? '' : params?.status,
-        reportType: params?.reportType === 'all' ? '' : params?.reportType,
-      };
-
-      if (!req.expiryDateStart) delete req.expiryDateStart;
-      if (!req.expiryDateEnd) delete req.expiryDateEnd;
-      if (!req.inspectionDateStart) delete req.inspectionDateStart;
-      if (!req.inspectionDateEnd) delete req.inspectionDateEnd;
-
-      // 前端只暴露 productSn；后端搜索字段仍使用 columnSn（后端会同时匹配 Report.columnSn / Report.productSn）
-      if (req.productSn) {
-        req.columnSn = req.productSn;
-        delete req.productSn;
-      }
+      const req = buildSearchReq(currentParams || {});
       const response = await reportApi.searchReports(
         req,
         page,
         PAGINATION.DEFAULT_PAGE_SIZE
       );
+
+      // 后端：SAP 查询失败时会降级为本地查询，并在响应中透出 sapWarning
+      // 这里提示用户：本次结果可能包含更多记录（未按 SAP 条件过滤）
+      if (response?.sapWarning) {
+        toast({
+          title: 'SAP 查询未生效',
+          description: response.sapWarning,
+          variant: 'destructive',
+        });
+      }
 
       // MyBatis-Plus Page 对象序列化后的字段：records, total, pages, current, size
       //更新数据
@@ -137,12 +157,26 @@ export default function QueryReportsPage(props) {
       return response;
     } catch (error) {
       console.error(`【报告查询】获取报告失败, page=${page}`, error);
-      showErrorToast(toast, { title: '获取数据失败', description: '无法加载报告列表，请稍后重试' });
+      const backendMessage =
+        error?.response?.data?.errorMsg ||
+        error?.response?.data?.message ||
+        error?.response?.data?.msg;
+
+      showErrorToast(
+        toast,
+        {
+          title: '获取数据失败',
+          // 后端有明确业务提示（例如 SAP 未查到匹配数据）时，优先展示后端信息
+          // 否则再降级展示通用文案
+          description: backendMessage ? undefined : '无法加载报告列表，请稍后重试',
+        },
+        error
+      );
       throw error;
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [buildSearchReq, toast]);
 
   // 搜索处理
   const handleSearch = useCallback(async () => {
@@ -150,13 +184,22 @@ export default function QueryReportsPage(props) {
     try {
       const response = await fetchReports(1, searchParams);
 
-      toast({
-        title: '查询完成',
-        description: `找到 ${response.total} 条报告`,
-      });
+      const total = Number(response?.total || 0);
+      if (total > 0) {
+        toast({
+          title: '查询完成',
+          description: `找到 ${total} 条报告`,
+        });
+      } else {
+        toast({
+          title: '未找到数据',
+          description: '本地未找到匹配的报告/层析柱，请检查筛选条件后重试',
+          variant: 'destructive',
+        });
+      }
     } catch (error) {
       console.error('【报告查询】搜索失败', error);
-      showErrorToast(toast, { title: '搜索失败', description: '无法执行搜索操作，请稍后重试' });
+      showErrorToast(toast, { title: '搜索失败' }, error);
     } finally {
       setLoading(false);
     }
@@ -178,10 +221,37 @@ export default function QueryReportsPage(props) {
       expiryDateEnd: '',
       inspectionDateStart: '',
       inspectionDateEnd: '',
+      productionDateStart: '',
+      productionDateEnd: '',
     };
     setSearchParams(resetValues);
     fetchReports(1, resetValues);
   };
+
+  // 下载全部报告
+  const handleDownloadAll = useCallback(async () => {
+    try {
+      const req = buildSearchReq(searchParams);
+      const response = await reportApi.downloadZipBySearchParams(req);
+      const blob = new Blob([response.data], { type: 'application/zip' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `reports_${new Date().getTime()}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: '已开始下载',
+        description: '正在下载当前筛选条件匹配的全部报告压缩包',
+      });
+    } catch (error) {
+      console.error('【报告查询】下载全部失败', error);
+      showErrorToast(toast, { title: '下载失败', description: '下载失败，请稍后重试' });
+    }
+  }, [buildSearchReq, searchParams, toast]);
 
   // 下载报告
   const handleDownload = useCallback( async (report) => {
@@ -214,11 +284,13 @@ export default function QueryReportsPage(props) {
     },
   );
 
+  // 处理删除报告
   const handleDeleteReport = useCallback((report) => {
     setDeleteTarget(report || null);
     setDeleteConfirmOpen(true);
   }, []);
 
+  // 确认删除报告
   const confirmDeleteReport = useCallback(async () => {
     const report = deleteTarget;
     try {
@@ -363,6 +435,7 @@ export default function QueryReportsPage(props) {
     [toast]
   );
 
+  // 生成报告
   const doGenerateReport = useCallback(
     async (columnSn, mode) => {
       if (!columnSn) return;
@@ -375,7 +448,6 @@ export default function QueryReportsPage(props) {
         }
 
         // 提交成功即恢复可操作，不阻塞页面等待任务完成
-
         setGenerateDialogOpen(false);
         setExistenceInfo(null);
         setGenerateTarget(null);
@@ -434,6 +506,7 @@ export default function QueryReportsPage(props) {
     [fetchReports, pageNum, searchParams, toast]
   );
 
+  // 处理生成报告
   const handleGenerate = useCallback(
     async (report) => {
       try {
@@ -443,9 +516,9 @@ export default function QueryReportsPage(props) {
         setExistenceInfo(null);
         setGenerateDialogOpen(true);
       } catch (error) {
-        console.error(`【报告查询】检查报告失败, columnSn=${report?.columnSn || ''}`,
+        console.error(`【报告查询】生成报告失败, columnSn=${report?.columnSn || ''}`,
           error);
-        showErrorToast(toast, { title: '操作失败', description: '无法检查报告状态，请稍后重试' });
+        showErrorToast(toast, { title: '操作失败', description: '无法生成报告，请稍后重试' });
       }
     },
     [doGenerateReport, toast]
@@ -524,10 +597,14 @@ export default function QueryReportsPage(props) {
     () => reports.filter((r) => r.testResult === TEST_RESULTS.QUALIFIED).length,
     [reports]
   );
+
+  // 不合格数量
   const unqualifiedCount = useMemo(
     () => reports.filter((r) => r.testResult === TEST_RESULTS.UNQUALIFIED).length,
     [reports]
   );
+  
+  // 今日报告数量
   const todayReports = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     return reports.filter((r) => r.submitTime?.startsWith(today)).length;
@@ -582,14 +659,14 @@ export default function QueryReportsPage(props) {
         {selection.selectedItems.length > 0 && (
           <Card className="mb-6 bg-secondary border-border">
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
                   <FileText className="w-5 h-5 text-primary" />
                   <span className="text-sm font-medium text-foreground">
                     已选择 {selection.selectedItems.length} 个报告
                   </span>
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button variant="outline" size="sm" onClick={selection.clearSelection}>
                     取消选择
                   </Button>
@@ -610,15 +687,24 @@ export default function QueryReportsPage(props) {
         {/* 报告列表 */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
+            <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="flex items-center gap-2">
                 <FileText className="w-5 h-5" />
                 报告列表
               </span>
-              <div className="flex items-center space-x-2">
-                <div className="text-sm text-gray-500">
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <div className="text-sm text-gray-500 whitespace-nowrap">
                   当前页显示 {currentReports.length} 条，共 {total} 个报告
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadAll}
+                  disabled={loading || total === 0}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  下载全部
+                </Button>
               </div>
             </CardTitle>
           </CardHeader>
@@ -667,8 +753,8 @@ export default function QueryReportsPage(props) {
       <Dialog open={previewDialogOpen} onOpenChange={handleClosePreview}>
         <DialogContent className="max-w-4xl w-full h-[80vh] flex flex-col">
           <DialogHeader>
-            <div className="flex justify-between items-center">
-              <DialogTitle>{previewTitle}</DialogTitle>
+            <div className="flex flex-wrap justify-between items-center gap-3 min-w-0">
+              <DialogTitle className="min-w-0 truncate" title={previewTitle || ''}>{previewTitle}</DialogTitle>
               <Button
                 variant="outline"
                 size="sm"
@@ -730,21 +816,29 @@ export default function QueryReportsPage(props) {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>报告已存在</DialogTitle>
+            <DialogTitle>{existenceInfo ? '报告已存在' : '生成报告'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm text-gray-600">
             <div>
               当前层析柱：
               <span className="font-medium text-gray-900">{generateTarget?.columnSn}</span>
             </div>
-            <div>
-              当前报告ID：
-              <span className="font-medium text-gray-900">{existenceInfo?.currentReportId}</span>
-            </div>
-            <div>
-              历史备份数量：
-              <span className="font-medium text-gray-900">{existenceInfo?.backupCount ?? 0}</span>
-            </div>
+            {existenceInfo ? (
+              <>
+                <div>
+                  当前报告ID：
+                  <span className="font-medium text-gray-900">{existenceInfo?.currentReportId ?? '-'}</span>
+                </div>
+                <div>
+                  历史备份数量：
+                  <span className="font-medium text-gray-900">{existenceInfo?.backupCount ?? 0}</span>
+                </div>
+              </>
+            ) : (
+              <div className="text-xs text-muted-foreground">
+                未获取到报告存在信息，将按所选模式生成。
+              </div>
+            )}
           </div>
           <div className="flex flex-col gap-2 pt-2">
             <Button

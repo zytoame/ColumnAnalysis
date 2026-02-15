@@ -1,7 +1,8 @@
 // @ts-ignore;
 import React, { useState, useEffect, useRef } from 'react';
 // @ts-ignore;
-import { Button, Input, Card, CardContent, CardHeader, CardTitle, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@/components/ui';
+import { Button, Input, Card, CardContent, CardHeader, CardTitle, Dialog, DialogContent, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
+import { useToast } from '@/hooks/use-toast';
 // @ts-ignore;
 import { X, Save, Edit2, Thermometer, Gauge, Timer, Activity, AlertTriangle, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
 import { AntdTag } from '@/components/AntdTag.jsx';
@@ -334,7 +335,7 @@ export function EditModal({
     });
   };
 
-  // TODO计算CV值（变异系数）- 支持多分类测值，  
+  // 计算CV值（变异系数）- 支持多分类测值，  
   const calculateCV = rawValues => {
     const allValues = [];
 
@@ -519,7 +520,14 @@ export function EditModal({
                                 <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto">
                                   {values.map((value, index) => <div key={index} className="flex items-center gap-1">
                                       <span className="text-xs text-gray-500 w-8">{index + 1}.</span>
-                                      <Input type="number" step="0.01" value={value} onChange={e => updateRepeatabilityValues(category, index, e.target.value)} placeholder="测值" className="flex-1 h-8 text-sm" />
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={value}
+                                        onChange={e => updateRepeatabilityValues(category, index, e.target.value)}
+                                        placeholder="测值"
+                                        className="flex-1 min-w-[72px] h-8 px-2 py-1 text-sm leading-tight"
+                                      />
                                     </div>)}
                                 </div>
                               </div>)}

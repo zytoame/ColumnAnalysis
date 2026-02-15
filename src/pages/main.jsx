@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React,{ useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  useToast,
 } from '@/components/ui';
-import { FileText, Search, CheckCircle, AlertTriangle, Shield, ArrowRight, Clock, Database, PenTool, Cpu, Wrench } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Search, CheckCircle, AlertTriangle, ArrowRight, Database, PenTool, Cpu, Wrench } from 'lucide-react';
 import { WorkOrderStats } from '@/components/WorkOrderStats';
 import reportApi from '@/api/report';
 
@@ -15,7 +15,6 @@ export default function MainPage(props) {
   const { toast } = useToast();
 
   // 状态管理
-  const [recentActivities, setRecentActivities] = useState([]);
   const [statistics, setStatistics] = useState({
     totalReports: 0,
     approvedReports: 0,
@@ -108,10 +107,6 @@ export default function MainPage(props) {
         pageId: 'sn-mapping-manage',
       },
     ];
-  }, [statistics]);
-
-  const fetchRecentActivities = useCallback(async () => {
-    setRecentActivities([]);
   }, []);
 
   const fetchStatistics = useCallback(async () => {
@@ -131,9 +126,8 @@ export default function MainPage(props) {
 
   // 组件挂载时获取数据
   useEffect(() => {
-    fetchRecentActivities();
     fetchStatistics();
-  }, [fetchRecentActivities, fetchStatistics]);
+  }, [fetchStatistics]);
 
   // 页面跳转处理
   const handleNavigateToPage = useCallback(
@@ -166,18 +160,6 @@ export default function MainPage(props) {
     return colorMap[color] || colorMap.blue;
   }, []);
 
-  // 统计标签映射
-  const statLabelMap = useMemo(
-    () => ({
-      total: '总计',
-      pending: '待处理',
-      today: '今日',
-      thisWeek: '本周',
-      completed: '已完成',
-    }),
-    []
-  );
-
   return (
     <div style={style} className="space-y-6">
       
@@ -185,7 +167,7 @@ export default function MainPage(props) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card className="border-slate-200/70 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">报告总数</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">层析柱总数</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold text-primary">{statistics.totalReports}</div>

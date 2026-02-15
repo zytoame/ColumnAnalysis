@@ -15,7 +15,7 @@ export function SearchFilters({
     {
       type: 'input',
       name: 'GI_AUFNR',
-      label: '工单号(AUFNR)',
+      label: '工单号',
       placeholder: '请输入工单号',
     },
     {
@@ -27,25 +27,25 @@ export function SearchFilters({
     {
       type: 'input',
       name: 'GI_VBELN',
-      label: '订单号(VBELN)',
+      label: '订单号',
       placeholder: '请输入订单号',
     },
     {
       type: 'input',
       name: 'GI_RSNUM',
-      label: '预留单号(RSNUM)',
+      label: '预留单号',
       placeholder: '请输入预留单号',
     },
     {
       type: 'input',
       name: 'GI_ZDH',
-      label: '非生产领料单号(ZDH)',
+      label: '非生产领料单号',
       placeholder: '请输入非生产领料单号',
     },
     {
       type: 'input',
       name: 'GI_ZBHLS',
-      label: '备货单号(ZBHS)',
+      label: '备货单号',
       placeholder: '请输入备货单号',
     },
     {
@@ -71,24 +71,22 @@ export function SearchFilters({
       ],
     },
     {
-      type: 'date',
-      name: 'expiryDateStart',
-      label: '有效期开始',
+      type: 'dateRange',
+      startName: 'expiryDateStart',
+      endName: 'expiryDateEnd',
+      label: '有效期范围',
     },
     {
-      type: 'date',
-      name: 'expiryDateEnd',
-      label: '有效期结束',
+      type: 'dateRange',
+      startName: 'inspectionDateStart',
+      endName: 'inspectionDateEnd',
+      label: '检测日期范围',
     },
     {
-      type: 'date',
-      name: 'inspectionDateStart',
-      label: '检测日期开始',
-    },
-    {
-      type: 'date',
-      name: 'inspectionDateEnd',
-      label: '检测日期结束',
+      type: 'dateRange',
+      startName: 'productionDateStart',
+      endName: 'productionDateEnd',
+      label: '生产日期范围',
     },
   ];
 

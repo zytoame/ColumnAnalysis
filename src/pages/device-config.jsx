@@ -30,8 +30,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  useToast,
 } from '@/components/ui';
+import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Cpu, Loader2, Plug, Plus, RefreshCw, Unplug, Pencil, Trash2 } from 'lucide-react';
 import deviceConfigApi from '@/api/deviceConfig';
 import { showErrorToast } from '@/utils/toast';
@@ -46,6 +47,7 @@ const EMPTY_FORM = {
 export default function DeviceConfigPage(props) {
   const { $w, style } = props;
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -470,9 +472,9 @@ export default function DeviceConfigPage(props) {
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
+            <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="flex items-center gap-2">机器列表</span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 <Button
                   size="sm"
                   onClick={handleBatchConnect}
@@ -510,85 +512,158 @@ export default function DeviceConfigPage(props) {
                 <span className="ml-2 text-gray-500">加载中...</span>
               </div>
             ) : (
-              <div className="w-full overflow-auto">
-                <Table className="min-w-[920px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-10">
-                        <Checkbox checked={headerChecked} onCheckedChange={toggleSelectAll} disabled={!selectableIds.length} />
-                      </TableHead>
-                      <TableHead className="w-56">名称</TableHead>
-                      <TableHead className="w-28">模式</TableHead>
-                      <TableHead className="w-56">Host</TableHead>
-                      <TableHead className="w-24">端口</TableHead>
-                      <TableHead className="w-56">操作</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {machines.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center">
-                          暂无机器，请点击右上角“添加机器”
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      machines.map((m) => {
-                        const status = renderRowStatus(m.id);
-                        const connected = status === 'CONNECTED';
-                        const active = renderRowActive(m.id);
+              isMobile ? (
+                <div className="p-4 space-y-3">
+                  {machines.length === 0 ? (
+                    <div className="text-sm text-gray-500 text-center py-6">
+                      暂无机器，请点击右上角“添加机器”
+                    </div>
+                  ) : (
+                    machines.map((m) => {
+                      const status = renderRowStatus(m.id);
+                      const connected = status === 'CONNECTED';
+                      const active = renderRowActive(m.id);
+                      const checked = m?.id ? selectedIdSet.has(m.id) : false;
+                      const hostPort = `${m?.host || '-'}:${m?.port ?? '-'}`;
 
-                        return (
-                          <TableRow key={m.id} className="hover:bg-secondary">
-                            <TableCell>
+                      return (
+                        <Card key={m.id} className="p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 min-w-0 flex-1">
                               <Checkbox
-                                checked={m?.id ? selectedIdSet.has(m.id) : false}
-                                onCheckedChange={(checked) => toggleSelectOne(m.id, checked)}
+                                checked={checked}
+                                onCheckedChange={(next) => toggleSelectOne(m.id, next)}
                                 disabled={!m?.id}
                               />
-                            </TableCell>
-                            <TableCell className="font-medium">{m.name}</TableCell>
-                            <TableCell>{m.mode}</TableCell>
-                            <TableCell>{m.host}</TableCell>
-                            <TableCell>{m.port}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" onClick={() => openEditDialog(m)}>
-                                  <Pencil className="w-4 h-4" />
-                                </Button>
-                                <Button variant="destructive" size="sm" onClick={() => requestDelete(m)}>
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                                {active ? (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleDisconnect(m.id)}
-                                    disabled={saving}
-                                    className="flex items-center gap-2"
-                                  >
-                                    <Unplug className="w-4 h-4" />
-                                    {connected ? '断开' : '停止重试'}
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleConnect(m.id)}
-                                    disabled={saving}
-                                    className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2"
-                                  >
-                                    <Plug className="w-4 h-4" />
-                                    连接
-                                  </Button>
-                                )}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="font-medium truncate" title={m?.name || ''}>{m?.name || '-'}</div>
+                                  <div className="text-xs text-muted-foreground whitespace-nowrap">{status}</div>
+                                </div>
+                                <div className="mt-1 text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+                                  <div className="whitespace-nowrap">模式：{m?.mode || '-'}</div>
+                                  <div className="truncate" title={hostPort}>Host：{hostPort}</div>
+                                </div>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => openEditDialog(m)}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={() => requestDelete(m)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                            {active ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDisconnect(m.id)}
+                                disabled={saving}
+                                className="flex items-center gap-2"
+                              >
+                                <Unplug className="w-4 h-4" />
+                                {connected ? '断开' : '停止重试'}
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => handleConnect(m.id)}
+                                disabled={saving}
+                                className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2"
+                              >
+                                <Plug className="w-4 h-4" />
+                                连接
+                              </Button>
+                            )}
+                          </div>
+                        </Card>
+                      );
+                    })
+                  )}
+                </div>
+              ) : (
+                <div className="w-full overflow-auto">
+                  <Table className="min-w-[920px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">
+                          <Checkbox checked={headerChecked} onCheckedChange={toggleSelectAll} disabled={!selectableIds.length} />
+                        </TableHead>
+                        <TableHead className="w-56">名称</TableHead>
+                        <TableHead className="w-28">模式</TableHead>
+                        <TableHead className="w-56">Host</TableHead>
+                        <TableHead className="w-24">端口</TableHead>
+                        <TableHead className="w-56">操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {machines.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center">
+                            暂无机器，请点击右上角“添加机器”
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        machines.map((m) => {
+                          const status = renderRowStatus(m.id);
+                          const connected = status === 'CONNECTED';
+                          const active = renderRowActive(m.id);
+
+                          return (
+                            <TableRow key={m.id} className="hover:bg-secondary">
+                              <TableCell>
+                                <Checkbox
+                                  checked={m?.id ? selectedIdSet.has(m.id) : false}
+                                  onCheckedChange={(checked) => toggleSelectOne(m.id, checked)}
+                                  disabled={!m?.id}
+                                />
+                              </TableCell>
+                              <TableCell className="font-medium">{m.name}</TableCell>
+                              <TableCell>{m.mode}</TableCell>
+                              <TableCell>{m.host}</TableCell>
+                              <TableCell>{m.port}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <Button variant="outline" size="sm" onClick={() => openEditDialog(m)}>
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  <Button variant="destructive" size="sm" onClick={() => requestDelete(m)}>
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                  {active ? (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleDisconnect(m.id)}
+                                      disabled={saving}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <Unplug className="w-4 h-4" />
+                                      {connected ? '断开' : '停止重试'}
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleConnect(m.id)}
+                                      disabled={saving}
+                                      className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2"
+                                    >
+                                      <Plug className="w-4 h-4" />
+                                      连接
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )
             )}
           </CardContent>
         </Card>

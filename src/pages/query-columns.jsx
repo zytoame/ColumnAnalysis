@@ -14,7 +14,6 @@ import {
   CardHeader,
   CardTitle,
   Checkbox,
-  useToast,
   Pagination,
   PaginationContent,
   PaginationEllipsis,
@@ -33,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui';
+import { useToast } from '@/hooks/use-toast';
 import { Search, Database, Loader2, FileText, Trash2 } from 'lucide-react';
 import { BaseSearchFilters } from '@/components/BaseSearchFilters.jsx';
 import { ModeTag, StatusTag } from '@/components/AntdTag.jsx';
@@ -46,7 +46,7 @@ export default function QueryColumnsPage(props) {
   const { $w, style } = props;
   const { toast } = useToast();
 
-  // 二次确认（替换 window.confirm）
+  // 二次确认
   const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
   const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
 
@@ -70,6 +70,8 @@ export default function QueryColumnsPage(props) {
     deviceSn: '',
     mode: TEST_TYPES.ALL,
     status: 'all',
+    productionDateStart: '',
+    productionDateEnd: '',
     expiryDateStart: '',
     expiryDateEnd: '',
     inspectionDateStart: '',
@@ -82,6 +84,8 @@ export default function QueryColumnsPage(props) {
     deviceSn: '',
     mode: TEST_TYPES.ALL,
     status: 'all',
+    productionDateStart: '',
+    productionDateEnd: '',
     expiryDateStart: '',
     expiryDateEnd: '',
     inspectionDateStart: '',
@@ -133,24 +137,22 @@ export default function QueryColumnsPage(props) {
         ],
       },
       {
-        type: 'date',
-        name: 'expiryDateStart',
-        label: '有效期开始',
+        type: 'dateRange',
+        startName: 'expiryDateStart',
+        endName: 'expiryDateEnd',
+        label: '有效期范围',
       },
       {
-        type: 'date',
-        name: 'expiryDateEnd',
-        label: '有效期结束',
+        type: 'dateRange',
+        startName: 'inspectionDateStart',
+        endName: 'inspectionDateEnd',
+        label: '检测日期范围',
       },
       {
-        type: 'date',
-        name: 'inspectionDateStart',
-        label: '检测日期开始',
-      },
-      {
-        type: 'date',
-        name: 'inspectionDateEnd',
-        label: '检测日期结束',
+        type: 'dateRange',
+        startName: 'productionDateStart',
+        endName: 'productionDateEnd',
+        label: '生产日期范围',
       },
     ],
     [],
@@ -170,6 +172,8 @@ export default function QueryColumnsPage(props) {
         if (!req.expiryDateEnd) delete req.expiryDateEnd;
         if (!req.inspectionDateStart) delete req.inspectionDateStart;
         if (!req.inspectionDateEnd) delete req.inspectionDateEnd;
+        if (!req.productionDateStart) delete req.productionDateStart;
+        if (!req.productionDateEnd) delete req.productionDateEnd;
 
         const response = await columnApi.advancedSearch(req, page, PAGINATION.DEFAULT_PAGE_SIZE);
 
@@ -199,6 +203,7 @@ export default function QueryColumnsPage(props) {
     [columns],
   );
 
+  // 当前页的选择状态
   const currentPageSelection = useMemo(() => {
     const selectedSet = new Set(selectedColumnSns);
     const total = currentPageColumnSns.length;
@@ -211,6 +216,7 @@ export default function QueryColumnsPage(props) {
     };
   }, [currentPageColumnSns, selectedColumnSns]);
 
+  // 当前页全选/取消全选
   const handleToggleSelectAllCurrentPage = useCallback(
     (checked) => {
       const shouldSelect = checked === true;
@@ -227,6 +233,7 @@ export default function QueryColumnsPage(props) {
     [currentPageColumnSns],
   );
 
+  // 单个选择/取消选择
   const handleToggleSelectOne = useCallback((columnSn, checked) => {
     if (!columnSn) return;
     const shouldSelect = checked === true;
@@ -348,6 +355,7 @@ export default function QueryColumnsPage(props) {
     }
   }, [draftSearchParams, fetchColumns, toast]);
 
+  // 重置搜索条件
   const handleReset = useCallback(() => {
     const resetValues = {
       aufnr: '',
@@ -355,6 +363,8 @@ export default function QueryColumnsPage(props) {
       deviceSn: '',
       mode: TEST_TYPES.ALL,
       status: 'all',
+      productionDateStart: '',
+      productionDateEnd: '',
       expiryDateStart: '',
       expiryDateEnd: '',
       inspectionDateStart: '',
@@ -382,6 +392,7 @@ export default function QueryColumnsPage(props) {
     [appliedSearchParams, fetchColumns],
   );
 
+  // 渲染分页组件
   const renderPagination = useMemo(() => {
     if (totalPages <= 1) return null;
     const pageNumbers = generatePageNumbers(pageNum, totalPages);
@@ -432,6 +443,7 @@ export default function QueryColumnsPage(props) {
     );
   }, [handlePageChange, pageNum, total, totalPages]);
 
+  // 组件挂载时查询第一页数据
   useEffect(() => {
     fetchColumns(1, appliedSearchParams);
   }, []);
@@ -447,7 +459,7 @@ export default function QueryColumnsPage(props) {
 
       <div className="space-y-6">
         <BaseSearchFilters
-          title="查询条件"
+          title="查询"
           fields={fields}
           searchParams={draftSearchParams}
           setSearchParams={setDraftSearchParams}
@@ -458,14 +470,14 @@ export default function QueryColumnsPage(props) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
+            <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="flex items-center gap-2">
                 <Search className="w-5 h-5" />
                 柱子列表
               </span>
-              <div className="flex items-center gap-2">
-                <div className="text-sm text-gray-500">当前页显示 {columns.length} 条，共 {total} 条</div>
-                <div className="text-sm text-gray-500">已选择 {selectedColumnSns.length} 条</div>
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <div className="text-sm text-gray-500 whitespace-nowrap">当前页显示 {columns.length} 条，共 {total} 条</div>
+                <div className="text-sm text-gray-500 whitespace-nowrap">已选择 {selectedColumnSns.length} 条</div>
                 <Button
                   size="sm"
                   variant="outline"
@@ -495,7 +507,7 @@ export default function QueryColumnsPage(props) {
               </div>
             ) : (
               <div className="w-full overflow-auto">
-                <Table className="table-fixed min-w-[1400px]">
+                <Table className="table-fixed min-w-[1520px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-10">
@@ -511,6 +523,7 @@ export default function QueryColumnsPage(props) {
                           disabled={currentPageSelection.total === 0}
                         />
                       </TableHead>
+                      <TableHead className="w-40 whitespace-nowrap">层析柱序列号</TableHead>
                       <TableHead className="w-40 whitespace-nowrap">成品序列号</TableHead>
                       <TableHead className="w-32 whitespace-nowrap">工单号</TableHead>
                       <TableHead className="w-32 whitespace-nowrap">仪器序列号</TableHead>
@@ -529,7 +542,7 @@ export default function QueryColumnsPage(props) {
                   <TableBody>
                     {columns.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={14} className="text-center">
+                        <TableCell colSpan={15} className="text-center">
                           暂无数据
                         </TableCell>
                       </TableRow>
@@ -542,19 +555,45 @@ export default function QueryColumnsPage(props) {
                               onCheckedChange={(checked) => handleToggleSelectOne(c.columnSn, checked)}
                             />
                           </TableCell>
-                          <TableCell className="font-medium whitespace-nowrap truncate">{c.productSn || '-'}</TableCell>
-                          <TableCell className="whitespace-nowrap truncate">{c.aufnr || '-'}</TableCell>
-                          <TableCell className="whitespace-nowrap truncate">{c.deviceSn || '-'}</TableCell>
+                          <TableCell
+                            className="font-medium whitespace-nowrap truncate"
+                            title={c.columnSn || ''}
+                          >
+                            {c.columnSn || '-'}
+                          </TableCell>
+                          <TableCell
+                            className="font-medium whitespace-nowrap truncate"
+                            title={c.productSn || ''}
+                          >
+                            {c.productSn || '-'}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap truncate" title={c.aufnr || ''}>
+                            {c.aufnr || '-'}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap truncate" title={c.deviceSn || ''}>
+                            {c.deviceSn || '-'}
+                          </TableCell>
                           <TableCell>
                             <ModeTag mode={c.mode} />
                           </TableCell>
                           <TableCell>
                             <StatusTag status={c.status} />
                           </TableCell>
-                          <TableCell className="whitespace-nowrap truncate">{c.preprocessColumnSn || '-'}</TableCell>
-                          <TableCell className="whitespace-nowrap">{c.inspectionDate || '-'}</TableCell>
-                          <TableCell className="whitespace-nowrap truncate">{c.auditor || '-'}</TableCell>
-                          <TableCell className="whitespace-nowrap">{c.auditTime || '-'}</TableCell>
+                          <TableCell
+                            className="whitespace-nowrap truncate"
+                            title={c.preprocessColumnSn || ''}
+                          >
+                            {c.preprocessColumnSn || '-'}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap" title={c.inspectionDate || ''}>
+                            {c.inspectionDate || '-'}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap truncate" title={c.auditor || ''}>
+                            {c.auditor || '-'}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap" title={c.auditTime || ''}>
+                            {c.auditTime || '-'}
+                          </TableCell>
                           <TableCell className="whitespace-nowrap text-right">{c.setTemperature ?? '-'}</TableCell>
                           <TableCell className="whitespace-nowrap text-right">{c.pressure ?? '-'}</TableCell>
                           <TableCell className="whitespace-nowrap text-right">{c.peakTime ?? '-'}</TableCell>
@@ -568,7 +607,8 @@ export default function QueryColumnsPage(props) {
             )}
           </CardContent>
         </Card>
-
+        
+        {/* 批量生成报告确认 */}
         <Dialog
           open={batchGenerateDialogOpen}
           onOpenChange={(open) => {
@@ -610,6 +650,7 @@ export default function QueryColumnsPage(props) {
           </DialogContent>
         </Dialog>
 
+        {/* 批量删除确认 */}
         <Dialog
           open={batchDeleteDialogOpen}
           onOpenChange={(open) => {
@@ -625,7 +666,6 @@ export default function QueryColumnsPage(props) {
               <div>
                 已选择：<span className="font-medium text-gray-900">{selectedColumnSns.length}</span> 条
               </div>
-              <div className="text-gray-500">注意：不会删除日志表（device_message_*）。</div>
             </div>
             <div className="flex flex-col gap-2 pt-2">
               <Button onClick={() => doBatchDelete('ONLY_COLUMN')} disabled={deleting}>
@@ -649,6 +689,7 @@ export default function QueryColumnsPage(props) {
           </DialogContent>
         </Dialog>
 
+        {/* 清空历史后覆盖生成确认 */}
         <AlertDialog open={purgeConfirmOpen} onOpenChange={setPurgeConfirmOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -673,6 +714,7 @@ export default function QueryColumnsPage(props) {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* 删除全部相关数据确认 */}
         <AlertDialog open={deleteAllConfirmOpen} onOpenChange={setDeleteAllConfirmOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
